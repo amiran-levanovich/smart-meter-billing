@@ -365,3 +365,16 @@ def test_running_month_is_billed_only_up_to_now():
 
 def test_finished_month_is_not_in_progress():
     assert not bill_for(month_readings(2026, 10), now=berlin(2026, 11, 3, 10, 0)).in_progress
+
+
+def test_running_month_ends_at_the_latest_reading_not_at_now():
+    now = berlin(2026, 11, 3, 10, 0)
+    readings = {t: 100 for t in month_readings(2026, 11) if t < berlin(2026, 11, 3, 8, 0)}
+    del readings[berlin(2026, 11, 2, 12, 0)]
+    for minute in (15, 30, 45, 60, 75):
+        del readings[berlin(2026, 11, 2, 12, 0) + timedelta(minutes=minute)]
+
+    bill = bill_for(readings, month=11, now=now)
+
+    assert bill.period_end == berlin(2026, 11, 3, 8, 0)
+    assert bill.unbilled_intervals == 6
