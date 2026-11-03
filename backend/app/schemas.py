@@ -1,10 +1,10 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel, Field, field_validator
 
-from app.billing import BERLIN, Bill
+from app.billing import BERLIN, Bill, Reading
 
 
 class Period(BaseModel):
@@ -107,3 +107,25 @@ def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> B
             for n in bill.notices
         ],
     )
+
+
+class ReadingIn(BaseModel):
+    timestamp: AwareDatetime
+    energy_wh: int = Field(strict=True, ge=0)
+
+    @field_validator("timestamp")
+    @classmethod
+    def on_quarter_hour(cls, timestamp: datetime) -> datetime:
+        utc = timestamp.astimezone(UTC)
+        if utc.minute % 15 or utc.second or utc.microsecond:
+            raise ValueError("timestamp must start a 15-minute interval")
+        return utc
+
+    def to_reading(self) -> Reading:
+        return Reading(self.timestamp, self.energy_wh)
+
+
+class IngestOut(BaseModel):
+    inserted: int
+    corrected: int
+    unchanged: int

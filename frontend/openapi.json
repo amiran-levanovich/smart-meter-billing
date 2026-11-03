@@ -66,6 +66,60 @@
           }
         }
       }
+    },
+    "/api/meters/{public_id}/readings": {
+      "post": {
+        "summary": "Post Readings",
+        "operationId": "post_readings_api_meters__public_id__readings_post",
+        "parameters": [
+          {
+            "name": "public_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Public Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReadingIn"
+                },
+                "title": "Readings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -186,6 +240,29 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IngestOut": {
+        "properties": {
+          "inserted": {
+            "type": "integer",
+            "title": "Inserted"
+          },
+          "corrected": {
+            "type": "integer",
+            "title": "Corrected"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "inserted",
+          "corrected",
+          "unchanged"
+        ],
+        "title": "IngestOut"
       },
       "LineItemOut": {
         "properties": {
@@ -322,6 +399,26 @@
           "end"
         ],
         "title": "Period"
+      },
+      "ReadingIn": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "energy_wh": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Energy Wh"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "energy_wh"
+        ],
+        "title": "ReadingIn"
       },
       "ValidationError": {
         "properties": {

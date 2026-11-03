@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/meters/{public_id}/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Readings */
+        post: operations["post_readings_api_meters__public_id__readings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -85,6 +102,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** IngestOut */
+        IngestOut: {
+            /** Inserted */
+            inserted: number;
+            /** Corrected */
+            corrected: number;
+            /** Unchanged */
+            unchanged: number;
         };
         /** LineItemOut */
         LineItemOut: {
@@ -143,6 +169,16 @@ export interface components {
              * Format: date-time
              */
             end: string;
+        };
+        /** ReadingIn */
+        ReadingIn: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** Energy Wh */
+            energy_wh: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -215,6 +251,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BillOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_readings_api_meters__public_id__readings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingIn"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestOut"];
                 };
             };
             /** @description Validation Error */
