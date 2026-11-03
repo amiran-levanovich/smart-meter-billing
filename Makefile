@@ -1,4 +1,4 @@
-.PHONY: install dev dev-backend dev-frontend test lint
+.PHONY: install dev dev-backend dev-frontend test lint crosscheck
 
 install:
 	cd backend && uv sync
@@ -20,3 +20,6 @@ test:
 lint:
 	cd backend && uv run ruff check . && uv run ruff format --check .
 	cd frontend && npm run lint && npm run typecheck
+
+crosscheck:
+	cd backend && uv run --group crosscheck python scripts/crosscheck.py
