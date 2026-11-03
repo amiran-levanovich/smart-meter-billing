@@ -6,7 +6,9 @@ from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from app.billing import Reading, Tariff, compute_bill
+import pytest
+
+from app.billing import NoReadingsError, Reading, Tariff, compute_bill
 
 BERLIN = ZoneInfo("Europe/Berlin")
 TARIFF = Tariff(
@@ -138,3 +140,71 @@ def test_net_prices_add_vat_on_top():
     # 837.88 x 0.19 = 159.1972
     assert (bill.vat.net_eur, bill.vat.vat_eur) == (Decimal("837.88"), Decimal("159.20"))
     assert bill.total_eur == Decimal("997.08")
+
+
+def estimates(bill) -> list[tuple[datetime, int]]:
+    return [(n.interval_start, n.energy_wh) for n in bill.notices if n.kind == "estimated"]
+
+
+def test_missing_interval_is_estimated_from_its_neighbours():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 13, 14, 15)] = 2460
+    readings[berlin(2026, 10, 13, 14, 45)] = 2115
+    del readings[berlin(2026, 10, 13, 14, 30)]
+
+    bill = bill_for(readings)
+
+    # (2460 + 2115) / 2 = 2287.5, rounded half-up to whole Wh
+    assert line(bill, "day").quantity == Decimal("6.863")
+    [notice] = [n for n in bill.notices if n.kind == "estimated"]
+    assert notice.interval_start == berlin(2026, 10, 13, 14, 30)
+    assert notice.energy_wh == 2288
+    # 2.288 kWh x 31.847 ct = 72.86 ct
+    assert notice.amount_eur == Decimal("0.73")
+
+
+def test_estimate_rounds_half_a_watt_hour_up():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 2, 9, 0)] = 1000
+    readings[berlin(2026, 10, 2, 9, 30)] = 1001
+    del readings[berlin(2026, 10, 2, 9, 15)]
+
+    assert estimates(bill_for(readings)) == [(berlin(2026, 10, 2, 9, 15), 1001)]
+
+
+def test_gap_run_is_interpolated_linearly_between_real_readings():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 2, 9, 0)] = 1000
+    readings[berlin(2026, 10, 2, 9, 45)] = 2000
+    del readings[berlin(2026, 10, 2, 9, 15)]
+    del readings[berlin(2026, 10, 2, 9, 30)]
+
+    assert estimates(bill_for(readings)) == [
+        (berlin(2026, 10, 2, 9, 15), 1333),
+        (berlin(2026, 10, 2, 9, 30), 1667),
+    ]
+
+
+def test_gap_at_month_start_uses_the_reading_before_the_month():
+    readings = month_readings(2026, 10)
+    del readings[berlin(2026, 10, 1, 0, 0)]
+    readings[berlin(2026, 10, 1, 0, 15)] = 600
+    readings[berlin(2026, 9, 30, 23, 45)] = 400  # outside the month, not billed
+
+    bill = bill_for(readings)
+
+    assert estimates(bill) == [(berlin(2026, 10, 1, 0, 0), 500)]
+    assert line(bill, "night").quantity == Decimal("1.100")
+
+
+def test_gap_at_month_end_without_a_later_reading_copies_the_nearest():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 31, 23, 30)] = 700
+    del readings[berlin(2026, 10, 31, 23, 45)]
+
+    assert estimates(bill_for(readings)) == [(berlin(2026, 10, 31, 23, 45), 700)]
+
+
+def test_month_without_readings_cannot_be_billed():
+    with pytest.raises(NoReadingsError):
+        bill_for({berlin(2026, 9, 30, 23, 45): 400})
