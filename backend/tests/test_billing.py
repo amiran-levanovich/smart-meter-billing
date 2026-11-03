@@ -84,9 +84,15 @@ def test_month_with_spring_forward_has_92_intervals_on_that_day():
 def test_clock_change_is_a_notice_at_the_first_interval_after_it():
     bill = bill_for(month_readings(2026, 10))
 
-    assert [(n.kind, n.interval_start) for n in bill.notices] == [
-        ("dst", datetime.fromisoformat("2026-10-25T02:00:00+01:00"))
+    assert [(n.kind, n.interval_start, n.clock) for n in bill.notices] == [
+        ("dst", datetime.fromisoformat("2026-10-25T02:00:00+01:00"), "back")
     ]
+
+
+def test_spring_clock_change_moves_the_clock_forward():
+    bill = bill_for(month_readings(2027, 3), year=2027, month=3)
+
+    assert [(n.kind, n.clock) for n in bill.notices] == [("dst", "forward")]
 
 
 def test_each_line_is_rounded_to_cents_and_the_total_is_their_sum():
@@ -230,6 +236,7 @@ def test_intervals_after_the_last_reading_are_not_billed():
     bill = bill_for({berlin(2026, 11, 2, 10, 0): 1000}, month=11)
 
     assert estimates(bill) == []
+    assert (bill.measured_intervals, bill.unbilled_intervals) == (1, 2879)
     assert [(item.kind, item.quantity) for item in bill.lines] == [
         ("day", Decimal("1.000")),
         ("night", Decimal("0.000")),
@@ -243,6 +250,7 @@ def test_month_without_readings_bills_only_the_fee():
 
     assert bill.total_eur == Decimal("12.90")
     assert bill.notices == []
+    assert (bill.measured_intervals, bill.unbilled_intervals) == (0, 2880)
 
 
 def test_corrected_reading_is_billed_at_its_latest_value_with_a_notice():

@@ -70,7 +70,9 @@ test('states that prices include VAT', () => {
 test('explains a spring clock change as a lost hour', () => {
   const march = {
     ...october,
-    notices: [{ ...october.notices[2], interval_start: '2027-03-28T03:00:00+02:00' }],
+    notices: [
+      { ...october.notices[2], interval_start: '2027-03-28T03:00:00+02:00', clock: 'forward' },
+    ],
   } as Bill
   render(<BillScreen bill={march} />)
 
@@ -102,7 +104,7 @@ test('says only the monthly fee is billed when nothing was measured', () => {
   const lines = october.lines.map((item) =>
     item.kind === 'fee' ? item : { ...item, quantity: '0.000', amount_eur: '0.00' },
   )
-  render(<BillScreen bill={{ ...october, lines, notices: [] }} />)
+  render(<BillScreen bill={{ ...october, lines, notices: [], measured_intervals: 0 }} />)
 
   expect(
     screen.getByText(
@@ -111,4 +113,30 @@ test('says only the monthly fee is billed when nothing was measured', () => {
   ).toBeInTheDocument()
   expect(screen.queryByText(/Ihres Stroms lief nachts/)).not.toBeInTheDocument()
   expect(screen.queryByRole('region', { name: 'Verbrauch pro Tag' })).not.toBeInTheDocument()
+})
+
+test('says a month that used no energy was still measured', () => {
+  const lines = october.lines.map((item) =>
+    item.kind === 'fee' ? item : { ...item, quantity: '0.000', amount_eur: '0.00' },
+  )
+  render(<BillScreen bill={{ ...october, lines, notices: [] }} />)
+
+  expect(screen.queryByText(/keine Messwerte/)).not.toBeInTheDocument()
+})
+
+test('names the hours that are missing and not billed', () => {
+  render(<BillScreen bill={{ ...october, unbilled_intervals: 98 }} />)
+
+  const notices = screen.getByRole('region', { name: 'Hinweise' })
+  expect(within(notices).getAllByRole('listitem').map(plainText)).toContain(
+    'fehlt Für 24,5 Stunden dieses Monats liegen keine Messwerte vor. Diese Zeit ist nicht berechnet.',
+  )
+})
+
+test('takes the day window from the tariff', () => {
+  render(<BillScreen bill={{ ...october, day_start: '07:00:00', day_end: '21:30:00' }} />)
+
+  expect(screen.getByText('7–21:30 Uhr (HT)')).toBeInTheDocument()
+  expect(screen.getByText('21:30–7 Uhr (NT)')).toBeInTheDocument()
+  expect(screen.getByText('Tag (7–21:30 Uhr)')).toBeInTheDocument()
 })

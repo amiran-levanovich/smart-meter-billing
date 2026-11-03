@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 
 from app.main import MAX_READINGS
@@ -116,3 +118,41 @@ def test_real_value_replaces_the_estimate_and_changes_the_total(client):
     # day 4562.796 + 0.012 kWh = 4562.808 kWh x 31.847 ct = 1453.1174 -> 1453.12
     assert bill["lines"][0]["amount_eur"] == "1453.12"
     assert bill["total_eur"] == "2296.00"
+
+
+def test_batch_is_retried_when_another_request_inserted_the_same_interval(client, monkeypatch):
+    import app.main
+    from app.db import ReadingRecord
+
+    real_ingest = app.main.ingest_readings
+    calls = []
+
+    def ingest_after_a_competing_insert(session, meter_id, readings, received_at):
+        if not calls:
+            with client.app.state.sessions() as other:
+                other.add(
+                    ReadingRecord(
+                        meter_id=meter_id,
+                        interval_start=datetime(2026, 11, 1, 0, 0, tzinfo=UTC),
+                        energy_wh=500,
+                        received_at=received_at,
+                    )
+                )
+                other.commit()
+            session.add(
+                ReadingRecord(
+                    meter_id=meter_id,
+                    interval_start=datetime(2026, 11, 1, 0, 0, tzinfo=UTC),
+                    energy_wh=500,
+                    received_at=received_at,
+                )
+            )
+            calls.append(1)
+            session.flush()
+        return real_ingest(session, meter_id, readings, received_at)
+
+    monkeypatch.setattr(app.main, "ingest_readings", ingest_after_a_competing_insert)
+
+    response = client.post(URL, json=[{"timestamp": "2026-11-01T00:00:00Z", "energy_wh": 500}])
+
+    assert response.json() == {"inserted": 0, "corrected": 0, "unchanged": 1}

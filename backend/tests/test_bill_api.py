@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.db import CustomerRecord, MeterRecord
 from app.main import app
+from app.seed import SEED_METER_PUBLIC_ID
 
 
 def test_october_bill_matches_the_independent_cross_check(client):
@@ -45,6 +46,7 @@ def test_october_bill_explains_the_three_data_traps(client):
             "energy_wh": 3200,
             "previous_energy_wh": 2419,
             "amount_eur": None,
+            "clock": None,
         },
         {
             "kind": "estimated",
@@ -52,6 +54,7 @@ def test_october_bill_explains_the_three_data_traps(client):
             "energy_wh": 2288,
             "previous_energy_wh": None,
             "amount_eur": "0.73",
+            "clock": None,
         },
         {
             "kind": "dst",
@@ -59,12 +62,23 @@ def test_october_bill_explains_the_three_data_traps(client):
             "energy_wh": None,
             "previous_energy_wh": None,
             "amount_eur": None,
+            "clock": "back",
         },
     ]
 
 
-def test_month_without_readings_bills_only_the_monthly_fee(client):
-    bill = client.get("/api/bill/2026-11").json()
+def test_months_outside_the_metered_range_are_not_found(client):
+    assert client.get("/api/bill/2026-09").status_code == 404
+    assert client.get("/api/bill/2026-11").status_code == 404
+
+
+def test_empty_month_between_readings_bills_only_the_monthly_fee(client):
+    client.post(
+        f"/api/meters/{SEED_METER_PUBLIC_ID}/readings",
+        json=[{"timestamp": "2027-01-01T00:00:00+01:00", "energy_wh": 500}],
+    )
+
+    bill = client.get("/api/bill/2026-12").json()
 
     assert [(line["kind"], line["amount_eur"]) for line in bill["lines"]] == [
         ("day", "0.00"),
@@ -72,7 +86,14 @@ def test_month_without_readings_bills_only_the_monthly_fee(client):
         ("fee", "12.90"),
     ]
     assert bill["total_eur"] == "12.90"
-    assert bill["notices"] == []
+    assert (bill["measured_intervals"], bill["unbilled_intervals"]) == (0, 2976)
+
+
+def test_october_bill_counts_measured_intervals_and_names_the_day_window(client):
+    bill = client.get("/api/bill/2026-10").json()
+
+    assert (bill["measured_intervals"], bill["unbilled_intervals"]) == (2979, 0)
+    assert (bill["day_start"], bill["day_end"]) == ("06:00:00", "22:00:00")
 
 
 def test_customer_with_a_second_meter_gets_a_clear_error(client):

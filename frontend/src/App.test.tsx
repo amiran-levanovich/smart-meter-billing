@@ -14,30 +14,39 @@ function api(routes: Record<string, unknown>) {
   )
 }
 
-test('opens the latest month with readings', async () => {
-  const fetchMock = api({ '/api/months/latest': { month: '2026-10' }, '/api/bill/2026-10': bill })
+test('opens the latest month with readings and offers no later month', async () => {
+  const fetchMock = api({
+    '/api/months': { first: '2026-09', last: '2026-10' },
+    '/api/bill/2026-10': bill,
+  })
   vi.stubGlobal('fetch', fetchMock)
 
   render(<App />)
 
   expect(await screen.findByText('Ihre Stromabrechnung Oktober 2026')).toBeInTheDocument()
   expect(fetchMock).toHaveBeenCalledWith('/api/bill/2026-10')
+  expect(screen.getByRole('button', { name: 'Vorheriger Monat' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Nächster Monat' })).not.toBeInTheDocument()
 })
 
 test('opens the month named in the address', async () => {
   window.history.replaceState(null, '', '/?month=2026-10')
-  const fetchMock = api({ '/api/bill/2026-10': bill })
+  const fetchMock = api({
+    '/api/months': { first: '2026-10', last: '2026-11' },
+    '/api/bill/2026-10': bill,
+  })
   vi.stubGlobal('fetch', fetchMock)
 
   render(<App />)
 
   expect(await screen.findByText('Ihre Stromabrechnung Oktober 2026')).toBeInTheDocument()
-  expect(fetchMock).not.toHaveBeenCalledWith('/api/months/latest')
+  expect(fetchMock).toHaveBeenCalledWith('/api/bill/2026-10')
+  expect(screen.queryByRole('button', { name: 'Vorheriger Monat' })).not.toBeInTheDocument()
 })
 
 test('steps to the next and previous month', async () => {
   const fetchMock = api({
-    '/api/months/latest': { month: '2026-10' },
+    '/api/months': { first: '2026-09', last: '2026-11' },
     '/api/bill/2026-10': bill,
     '/api/bill/2026-11': bill,
     '/api/bill/2026-09': bill,
