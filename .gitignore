@@ -33,3 +33,7 @@ pnpm-debug.log*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# SQLite database
+*.db
+*.sqlite3
