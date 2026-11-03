@@ -2,7 +2,7 @@
 task's tariff (day 31.847 ct/kWh 06:00-22:00, night 19.392 ct/kWh, fee 12.90 EUR)."""
 
 from dataclasses import replace
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -239,3 +239,43 @@ def test_notices_are_in_chronological_order():
     )
 
     assert [n.kind for n in bill.notices] == ["corrected", "estimated", "dst"]
+
+
+def test_period_runs_from_local_midnight_to_local_midnight():
+    bill = bill_for(month_readings(2026, 10))
+
+    assert (bill.period_start, bill.period_end) == (
+        datetime.fromisoformat("2026-10-01T00:00:00+02:00"),
+        datetime.fromisoformat("2026-11-01T00:00:00+01:00"),
+    )
+
+
+def test_night_share_is_night_kwh_over_total_kwh_in_whole_percent():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000))
+
+    # 996 / 2980 = 33.42 %
+    assert bill.night_share_percent == Decimal("33")
+
+
+def test_night_saving_is_night_kwh_times_the_day_night_price_gap():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000))
+
+    # 996 kWh x (31.847 - 19.392) ct = 124.0518 EUR
+    assert bill.night_saving_eur == Decimal("124.05")
+
+
+def test_daily_figures_split_day_and_night_per_berlin_date():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000))
+
+    assert len(bill.daily) == 31
+    first = bill.daily[0]
+    # 64 kWh x 31.847 ct = 20.38208; 32 kWh x 19.392 ct = 6.20544
+    assert (first.date, first.day_kwh, first.night_kwh, first.day_eur, first.night_eur) == (
+        date(2026, 10, 1),
+        Decimal("64.000"),
+        Decimal("32.000"),
+        Decimal("20.38"),
+        Decimal("6.21"),
+    )
+    dst_day = bill.daily[24]
+    assert (dst_day.date, dst_day.night_kwh) == (date(2026, 10, 25), Decimal("36.000"))
