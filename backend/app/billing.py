@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 BERLIN = ZoneInfo("Europe/Berlin")
 INTERVAL = timedelta(minutes=15)
 CENT = Decimal("0.01")
+VAT_RATE = Decimal("0.19")  # electricity is always standard-rated in Germany
 
 
 @dataclass(frozen=True)
@@ -44,8 +45,18 @@ class Notice:
 
 
 @dataclass(frozen=True)
+class Vat:
+    rate: Decimal
+    net_eur: Decimal
+    vat_eur: Decimal
+
+
+@dataclass(frozen=True)
 class Bill:
     lines: list[LineItem]
+    total_eur: Decimal
+    prices_include_vat: bool
+    vat: Vat
     notices: list[Notice]
 
 
@@ -65,7 +76,13 @@ def is_day(interval_start: datetime, tariff: Tariff) -> bool:
     return tariff.day_start <= interval_start.astimezone(BERLIN).time() < tariff.day_end
 
 
-def compute_bill(readings: Iterable[Reading], tariff: Tariff, year: int, month: int) -> Bill:
+def compute_bill(
+    readings: Iterable[Reading],
+    tariff: Tariff,
+    year: int,
+    month: int,
+    prices_include_vat: bool = True,
+) -> Bill:
     energy = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
     day_wh = night_wh = 0
@@ -79,12 +96,23 @@ def compute_bill(readings: Iterable[Reading], tariff: Tariff, year: int, month: 
         kwh = Decimal(wh).scaleb(-3)  # Wh to kWh, exact to 3 places
         return LineItem(kind, kwh, ct_per_kwh, to_cents(kwh * ct_per_kwh / 100))
 
+    lines = [
+        energy_line("day", day_wh, tariff.day_ct_per_kwh),
+        energy_line("night", night_wh, tariff.night_ct_per_kwh),
+        LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
+    ]
+    lines_sum = sum((item.amount_eur for item in lines), Decimal(0))
+    if prices_include_vat:
+        net = to_cents(lines_sum / (1 + VAT_RATE))
+        vat = Vat(VAT_RATE, net, lines_sum - net)
+    else:
+        vat = Vat(VAT_RATE, lines_sum, to_cents(lines_sum * VAT_RATE))
+
     return Bill(
-        lines=[
-            energy_line("day", day_wh, tariff.day_ct_per_kwh),
-            energy_line("night", night_wh, tariff.night_ct_per_kwh),
-            LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
-        ],
+        lines=lines,
+        total_eur=vat.net_eur + vat.vat_eur,
+        prices_include_vat=prices_include_vat,
+        vat=vat,
         notices=clock_changes(intervals),
     )
 
