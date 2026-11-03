@@ -1,8 +1,8 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from app.billing import BERLIN, Bill, Reading
 
@@ -30,12 +30,16 @@ class LineItemOut(BaseModel):
 
 
 class VatOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     rate: Decimal
     net_eur: Decimal
     vat_eur: Decimal
 
 
 class DailyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     date: date
     day_kwh: Decimal
     night_kwh: Decimal
@@ -44,11 +48,19 @@ class DailyOut(BaseModel):
 
 
 class NoticeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     kind: Literal["dst", "estimated", "corrected"]
     interval_start: datetime
     energy_wh: int | None
     previous_energy_wh: int | None
     amount_eur: Decimal | None
+    clock: Literal["back", "forward"] | None
+
+    @field_validator("interval_start")
+    @classmethod
+    def in_berlin(cls, interval_start: datetime) -> datetime:
+        return interval_start.astimezone(BERLIN)
 
 
 class BillOut(BaseModel):
@@ -63,6 +75,10 @@ class BillOut(BaseModel):
     night_saving_eur: Decimal
     daily: list[DailyOut]
     notices: list[NoticeOut]
+    measured_intervals: int
+    unbilled_intervals: int
+    day_start: time
+    day_end: time
 
 
 def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> BillOut:
@@ -83,29 +99,15 @@ def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> B
         ],
         total_eur=bill.total_eur,
         prices_include_vat=bill.prices_include_vat,
-        vat=VatOut(rate=bill.vat.rate, net_eur=bill.vat.net_eur, vat_eur=bill.vat.vat_eur),
+        vat=VatOut.model_validate(bill.vat),
         night_share_percent=bill.night_share_percent,
         night_saving_eur=bill.night_saving_eur,
-        daily=[
-            DailyOut(
-                date=d.date,
-                day_kwh=d.day_kwh,
-                night_kwh=d.night_kwh,
-                day_eur=d.day_eur,
-                night_eur=d.night_eur,
-            )
-            for d in bill.daily
-        ],
-        notices=[
-            NoticeOut(
-                kind=n.kind,
-                interval_start=n.interval_start.astimezone(BERLIN),
-                energy_wh=n.energy_wh,
-                previous_energy_wh=n.previous_energy_wh,
-                amount_eur=n.amount_eur,
-            )
-            for n in bill.notices
-        ],
+        daily=[DailyOut.model_validate(d) for d in bill.daily],
+        notices=[NoticeOut.model_validate(n) for n in bill.notices],
+        measured_intervals=bill.measured_intervals,
+        unbilled_intervals=bill.unbilled_intervals,
+        day_start=bill.day_start,
+        day_end=bill.day_end,
     )
 
 
@@ -125,11 +127,6 @@ class ReadingIn(BaseModel):
         return Reading(self.timestamp, self.energy_wh)
 
 
-class IngestOut(BaseModel):
-    inserted: int
-    corrected: int
-    unchanged: int
-
-
-class LatestMonthOut(BaseModel):
-    month: str
+class MonthsOut(BaseModel):
+    first: str
+    last: str

@@ -47,6 +47,7 @@ class Notice:
     energy_wh: int | None = None
     previous_energy_wh: int | None = None
     amount_eur: Decimal | None = None
+    clock: Literal["back", "forward"] | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,10 @@ class Bill:
     night_saving_eur: Decimal
     daily: list[DailyUsage]
     notices: list[Notice]
+    measured_intervals: int
+    unbilled_intervals: int
+    day_start: time
+    day_end: time
 
 
 class InvalidTariffError(ValueError):
@@ -135,6 +140,7 @@ def compute_bill(
         if r.previous_energy_wh is not None and r.interval_start in in_month
     ]
     per_date: defaultdict[date, dict[Rate, int]] = defaultdict(lambda: {"day": 0, "night": 0})
+    unbilled = 0
     for t in intervals:
         rate = rate_of(t, tariff)
         totals = per_date[t.astimezone(BERLIN).date()]
@@ -142,6 +148,7 @@ def compute_bill(
         if wh is None:
             wh = estimate(t, times, measured)
             if wh is None:
+                unbilled += 1
                 continue
             notices.append(Notice("estimated", t, wh, amount_eur=eur(to_kwh(wh), price[rate])))
         totals[rate] += wh
@@ -180,6 +187,10 @@ def compute_bill(
             for local_date, wh in per_date.items()
         ],
         notices=sorted(notices, key=lambda n: n.interval_start),
+        measured_intervals=len(measured.keys() & in_month),
+        unbilled_intervals=unbilled,
+        day_start=tariff.day_start,
+        day_end=tariff.day_end,
     )
 
 
@@ -206,7 +217,7 @@ def clock_changes(intervals: list[datetime]) -> list[Notice]:
         return t.astimezone(BERLIN).utcoffset()
 
     return [
-        Notice("dst", after)
+        Notice("dst", after, clock="back" if offset(after) < offset(before) else "forward")
         for before, after in zip(intervals, intervals[1:], strict=False)
         if offset(before) != offset(after)
     ]

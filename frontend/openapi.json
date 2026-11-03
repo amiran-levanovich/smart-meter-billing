@@ -27,17 +27,17 @@
         }
       }
     },
-    "/api/months/latest": {
+    "/api/months": {
       "get": {
-        "summary": "Latest Month",
-        "operationId": "latest_month_api_months_latest_get",
+        "summary": "Months",
+        "operationId": "months_api_months_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LatestMonthOut"
+                  "$ref": "#/components/schemas/MonthsOut"
                 }
               }
             }
@@ -121,7 +121,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IngestOut"
+                  "$ref": "#/components/schemas/IngestResult"
                 }
               }
             }
@@ -194,6 +194,24 @@
             },
             "type": "array",
             "title": "Notices"
+          },
+          "measured_intervals": {
+            "type": "integer",
+            "title": "Measured Intervals"
+          },
+          "unbilled_intervals": {
+            "type": "integer",
+            "title": "Unbilled Intervals"
+          },
+          "day_start": {
+            "type": "string",
+            "format": "time",
+            "title": "Day Start"
+          },
+          "day_end": {
+            "type": "string",
+            "format": "time",
+            "title": "Day End"
           }
         },
         "type": "object",
@@ -208,7 +226,11 @@
           "night_share_percent",
           "night_saving_eur",
           "daily",
-          "notices"
+          "notices",
+          "measured_intervals",
+          "unbilled_intervals",
+          "day_start",
+          "day_end"
         ],
         "title": "BillOut"
       },
@@ -259,7 +281,7 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "IngestOut": {
+      "IngestResult": {
         "properties": {
           "inserted": {
             "type": "integer",
@@ -280,20 +302,7 @@
           "corrected",
           "unchanged"
         ],
-        "title": "IngestOut"
-      },
-      "LatestMonthOut": {
-        "properties": {
-          "month": {
-            "type": "string",
-            "title": "Month"
-          }
-        },
-        "type": "object",
-        "required": [
-          "month"
-        ],
-        "title": "LatestMonthOut"
+        "title": "IngestResult"
       },
       "LineItemOut": {
         "properties": {
@@ -346,6 +355,24 @@
         ],
         "title": "LineItemOut"
       },
+      "MonthsOut": {
+        "properties": {
+          "first": {
+            "type": "string",
+            "title": "First"
+          },
+          "last": {
+            "type": "string",
+            "title": "Last"
+          }
+        },
+        "type": "object",
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "MonthsOut"
+      },
       "NoticeOut": {
         "properties": {
           "kind": {
@@ -394,6 +421,21 @@
               }
             ],
             "title": "Amount Eur"
+          },
+          "clock": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "back",
+                  "forward"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
           }
         },
         "type": "object",
@@ -402,7 +444,8 @@
           "interval_start",
           "energy_wh",
           "previous_energy_wh",
-          "amount_eur"
+          "amount_eur",
+          "clock"
         ],
         "title": "NoticeOut"
       },

@@ -26,7 +26,6 @@ def seed_if_empty(session: Session, readings_csv: Path, tariff_json: Path) -> No
         return
     raw = json.loads(tariff_json.read_text(), parse_float=Decimal)
     tariff = TariffRecord(
-        name="Tag/Nacht-Tarif",
         day_start=time.fromisoformat(raw["day"]["from"]),
         day_end=time.fromisoformat(raw["day"]["to"]),
         day_ct_per_kwh=raw["day"]["ct_per_kwh"],

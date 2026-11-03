@@ -32,7 +32,9 @@ function DayDetail({ active, payload }: TooltipContentProps) {
   )
 }
 
-export default function DailyChart({ daily }: { daily: Daily[] }) {
+type Props = { daily: Daily[]; windows: { day: string; night: string } }
+
+export default function DailyChart({ daily, windows }: Props) {
   const [unit, setUnit] = useState<Unit>('kWh')
   const isPhone = usePhone()
   const [dayKey, nightKey] =
@@ -64,11 +66,11 @@ export default function DailyChart({ daily }: { daily: Daily[] }) {
       <div className="legend">
         <span>
           <span className="dot dot-day" aria-hidden="true" />
-          Tag (6–22 Uhr)
+          Tag ({windows.day})
         </span>
         <span>
           <span className="dot dot-night" aria-hidden="true" />
-          Nacht (22–6 Uhr)
+          Nacht ({windows.night})
         </span>
       </div>
       <span className="axis-unit">{unit}</span>

@@ -21,15 +21,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/months/latest": {
+    "/api/months": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Latest Month */
-        get: operations["latest_month_api_months_latest_get"];
+        /** Months */
+        get: operations["months_api_months_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -98,6 +98,20 @@ export interface components {
             daily: components["schemas"]["DailyOut"][];
             /** Notices */
             notices: components["schemas"]["NoticeOut"][];
+            /** Measured Intervals */
+            measured_intervals: number;
+            /** Unbilled Intervals */
+            unbilled_intervals: number;
+            /**
+             * Day Start
+             * Format: time
+             */
+            day_start: string;
+            /**
+             * Day End
+             * Format: time
+             */
+            day_end: string;
         };
         /** DailyOut */
         DailyOut: {
@@ -120,19 +134,14 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** IngestOut */
-        IngestOut: {
+        /** IngestResult */
+        IngestResult: {
             /** Inserted */
             inserted: number;
             /** Corrected */
             corrected: number;
             /** Unchanged */
             unchanged: number;
-        };
-        /** LatestMonthOut */
-        LatestMonthOut: {
-            /** Month */
-            month: string;
         };
         /** LineItemOut */
         LineItemOut: {
@@ -158,6 +167,13 @@ export interface components {
             /** Amount Eur */
             amount_eur: string;
         };
+        /** MonthsOut */
+        MonthsOut: {
+            /** First */
+            first: string;
+            /** Last */
+            last: string;
+        };
         /** NoticeOut */
         NoticeOut: {
             /**
@@ -176,6 +192,8 @@ export interface components {
             previous_energy_wh: number | null;
             /** Amount Eur */
             amount_eur: string | null;
+            /** Clock */
+            clock: ("back" | "forward") | null;
         };
         /** Period */
         Period: {
@@ -255,7 +273,7 @@ export interface operations {
             };
         };
     };
-    latest_month_api_months_latest_get: {
+    months_api_months_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -270,7 +288,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LatestMonthOut"];
+                    "application/json": components["schemas"]["MonthsOut"];
                 };
             };
         };
@@ -327,7 +345,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IngestOut"];
+                    "application/json": components["schemas"]["IngestResult"];
                 };
             };
             /** @description Validation Error */

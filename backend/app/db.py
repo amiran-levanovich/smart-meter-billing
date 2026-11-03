@@ -43,7 +43,6 @@ class TariffRecord(Base):
     __tablename__ = "tariffs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
     day_start: Mapped[time] = mapped_column(Time)
     day_end: Mapped[time] = mapped_column(Time)
     day_ct_per_kwh: Mapped[Decimal] = mapped_column(DecimalText)

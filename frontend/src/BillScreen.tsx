@@ -1,9 +1,11 @@
 import DailyChart from './DailyChart'
 import {
+  formatClock,
   formatCtPerKwh,
   formatDate,
   formatDayAndMonth,
   formatEur,
+  formatHours,
   formatKwh,
   formatMonth,
   formatMonthAndYear,
@@ -16,10 +18,20 @@ import {
 } from './format'
 import type { Bill, LineItem, Notice } from './types'
 
-const POSITIONS: Record<LineItem['kind'], { name: string; detail: string }> = {
-  day: { name: 'Arbeitspreis Tag', detail: '6–22 Uhr (HT)' },
-  night: { name: 'Arbeitspreis Nacht', detail: '22–6 Uhr (NT)' },
-  fee: { name: 'Grundpreis', detail: 'fester Monatspreis' },
+const POSITIONS: Record<LineItem['kind'], string> = {
+  day: 'Arbeitspreis Tag',
+  night: 'Arbeitspreis Nacht',
+  fee: 'Grundpreis',
+}
+
+function windows(bill: Bill) {
+  const [start, end] = [formatClock(bill.day_start), formatClock(bill.day_end)]
+  return { day: `${start}–${end} Uhr`, night: `${end}–${start} Uhr` }
+}
+
+function details(bill: Bill): Record<LineItem['kind'], string> {
+  const { day, night } = windows(bill)
+  return { day: `${day} (HT)`, night: `${night} (NT)`, fee: 'fester Monatspreis' }
 }
 
 function quantity(line: LineItem) {
@@ -38,7 +50,7 @@ const TAGS: Record<Notice['kind'], string> = {
   dst: 'Zeitumstellung',
 }
 
-function explain(notice: Notice) {
+function explain(notice: Notice, bill: Bill) {
   const day = formatDayAndMonth(notice.interval_start)
   const at = `${day}, ${formatTime(notice.interval_start)} Uhr`
   switch (notice.kind) {
@@ -47,17 +59,23 @@ function explain(notice: Notice) {
     case 'estimated':
       return `Für den ${at}, fehlt ein Messwert. Wir haben ihn aus den Werten davor und danach geschätzt: ${formatWhAsKwh(notice.energy_wh!)} kWh (rund ${formatEur(notice.amount_eur!)}). Kommt der echte Wert noch, passen wir die Abrechnung an.`
     case 'dst':
-      return notice.interval_start.endsWith('+02:00')
-        ? `Am ${day} wurde die Uhr von 2 auf 3 Uhr vorgestellt. Der Tag hatte 23 Stunden.`
-        : `Am ${day} wurde die Uhr von 3 auf 2 Uhr zurückgestellt. Der Tag hatte 25 Stunden; die zusätzliche Stunde ist zum Nachtpreis berechnet.`
+      if (notice.clock === 'forward') {
+        return `Am ${day} wurde die Uhr von 2 auf 3 Uhr vorgestellt. Der Tag hatte 23 Stunden.`
+      }
+      return `Am ${day} wurde die Uhr von 3 auf 2 Uhr zurückgestellt. Der Tag hatte 25 Stunden; die zusätzliche Stunde ist zum ${extraHourIsDay(bill) ? 'Tagpreis' : 'Nachtpreis'} berechnet.`
   }
 }
 
-type Props = { bill: Bill; onMonthChange?: (month: string) => void }
+const extraHourIsDay = (bill: Bill) => bill.day_start <= '02:00:00' && '02:00:00' < bill.day_end
 
-export default function BillScreen({ bill, onMonthChange }: Props) {
+type Months = { first: string; last: string }
+type Props = { bill: Bill; months?: Months; onMonthChange?: (month: string) => void }
+
+export default function BillScreen({ bill, months, onMonthChange }: Props) {
   const { period, vat } = bill
-  const measured = bill.lines.some((line) => line.unit === 'kWh' && Number(line.quantity) > 0)
+  const measured = bill.measured_intervals > 0
+  const showMissing = measured && bill.unbilled_intervals > 0
+  const positionDetails = details(bill)
 
   return (
     <div className="page">
@@ -71,7 +89,7 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
         </header>
 
         <div className="title-row">
-          {onMonthChange && (
+          {onMonthChange && months && period.month > months.first && (
             <button
               type="button"
               className="month-step"
@@ -82,7 +100,7 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
             </button>
           )}
           <h1>Ihre Stromabrechnung {formatMonthAndYear(period.start)}</h1>
-          {onMonthChange && (
+          {onMonthChange && months && period.month < months.last && (
             <button
               type="button"
               className="month-step"
@@ -123,8 +141,8 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
                 <tr key={line.kind}>
                   <th scope="row">
                     <span className={`dot dot-${line.kind}`} aria-hidden="true" />
-                    {POSITIONS[line.kind].name}
-                    <span className="detail">{POSITIONS[line.kind].detail}</span>
+                    {POSITIONS[line.kind]}
+                    <span className="detail">{positionDetails[line.kind]}</span>
                     <span className="detail calculation">
                       {quantity(line)} × {unitPrice(line)}
                     </span>
@@ -154,7 +172,7 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
               <strong>{formatWholeEur(bill.night_saving_eur)}</strong> weniger gekostet.
             </p>
 
-            <DailyChart daily={bill.daily} />
+            <DailyChart daily={bill.daily} windows={windows(bill)} />
           </>
         ) : (
           <p className="why">
@@ -162,15 +180,21 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
           </p>
         )}
 
-        {bill.notices.length > 0 && (
+        {(bill.notices.length > 0 || showMissing) && (
           <section className="notices" aria-labelledby="notices-heading">
             <h2 id="notices-heading">Hinweise</h2>
             <ul>
               {bill.notices.map((notice) => (
                 <li key={`${notice.kind}-${notice.interval_start}`}>
-                  <span className="tag">{TAGS[notice.kind]}</span> {explain(notice)}
+                  <span className="tag">{TAGS[notice.kind]}</span> {explain(notice, bill)}
                 </li>
               ))}
+              {showMissing && (
+                <li>
+                  <span className="tag">fehlt</span> Für {formatHours(bill.unbilled_intervals)}{' '}
+                  Stunden dieses Monats liegen keine Messwerte vor. Diese Zeit ist nicht berechnet.
+                </li>
+              )}
             </ul>
           </section>
         )}

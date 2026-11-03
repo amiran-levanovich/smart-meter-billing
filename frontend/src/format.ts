@@ -55,3 +55,6 @@ export const shiftMonth = (month: string, delta: number) => {
   const shifted = new Date(Date.UTC(year, monthNumber - 1 + delta, 1))
   return shifted.toISOString().slice(0, 7)
 }
+export const formatClock = (clock: string) =>
+  clock.endsWith(':00:00') ? String(Number(clock.slice(0, 2))) : `${Number(clock.slice(0, 2))}:${clock.slice(3, 5)}`
+export const formatHours = (intervals: number) => oneDecimal.format(intervals / 4).replace(/,0$/, '')
