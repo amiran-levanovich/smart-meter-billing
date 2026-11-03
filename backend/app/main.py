@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app import config
-from app.billing import NoReadingsError
 from app.bills import bill_for_meter
 from app.db import CustomerRecord, MeterRecord
 from app.ingest import ingest_readings
@@ -100,13 +99,12 @@ def get_bill(
     customer: Annotated[CustomerRecord, Depends(current_customer)],
 ) -> BillOut:
     year, month_number = map(int, month.split("-"))
+    if len(customer.meters) != 1:
+        raise HTTPException(409, "billing supports exactly one meter per customer")
     [meter] = customer.meters
-    try:
-        bill = bill_for_meter(
-            session, meter.id, customer.tariff, year, month_number, config.prices_include_vat()
-        )
-    except NoReadingsError:
-        raise HTTPException(404, f"no readings for {month}") from None
+    bill = bill_for_meter(
+        session, meter.id, customer.tariff, year, month_number, config.prices_include_vat()
+    )
     return bill_out(bill, month, customer.name, meter.meter_number)
 
 

@@ -111,7 +111,7 @@ def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> B
 
 class ReadingIn(BaseModel):
     timestamp: AwareDatetime
-    energy_wh: int = Field(strict=True, ge=0)
+    energy_wh: int = Field(strict=True, ge=0, le=1_000_000)
 
     @field_validator("timestamp")
     @classmethod

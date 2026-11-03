@@ -82,10 +82,6 @@ class InvalidTariffError(ValueError):
     pass
 
 
-class NoReadingsError(Exception):
-    pass
-
-
 def to_cents(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
 
@@ -130,8 +126,6 @@ def compute_bill(
     measured = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
     in_month = set(intervals)
-    if not measured.keys() & in_month:
-        raise NoReadingsError(f"no readings for {year}-{month:02d}")
 
     times = sorted(measured)
     notices = clock_changes(intervals) + [
@@ -142,11 +136,14 @@ def compute_bill(
     per_date: defaultdict[date, dict[Rate, int]] = defaultdict(lambda: {"day": 0, "night": 0})
     for t in intervals:
         rate = rate_of(t, tariff)
+        totals = per_date[t.astimezone(BERLIN).date()]
         wh = measured.get(t)
         if wh is None:
             wh = estimate(t, times, measured)
+            if wh is None:
+                continue
             notices.append(Notice("estimated", t, wh, amount_eur=eur(to_kwh(wh), price[rate])))
-        per_date[t.astimezone(BERLIN).date()][rate] += wh
+        totals[rate] += wh
     day_wh = sum(wh["day"] for wh in per_date.values())
     night_wh = sum(wh["night"] for wh in per_date.values())
 
@@ -192,12 +189,12 @@ def night_share_percent(day_wh: int, night_wh: int) -> Decimal:
     return share.quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
-def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) -> int:
+def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) -> int | None:
     i = bisect_left(times, t)
     before = times[i - 1] if i > 0 else None
     after = times[i] if i < len(times) else None
     if before is None or after is None:
-        return measured[before or after]
+        return None
     share = Decimal((t - before) // INTERVAL) / Decimal((after - before) // INTERVAL)
     value = measured[before] + (measured[after] - measured[before]) * share
     return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
