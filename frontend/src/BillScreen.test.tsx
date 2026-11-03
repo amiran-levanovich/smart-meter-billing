@@ -97,3 +97,18 @@ test('switches the daily chart between energy and cost', () => {
   expect(within(chart).getByText('€', { selector: '.axis-unit' })).toBeInTheDocument()
   expect(within(chart).getByRole('button', { name: '€' })).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('says only the monthly fee is billed when nothing was measured', () => {
+  const lines = october.lines.map((item) =>
+    item.kind === 'fee' ? item : { ...item, quantity: '0.000', amount_eur: '0.00' },
+  )
+  render(<BillScreen bill={{ ...october, lines, notices: [] }} />)
+
+  expect(
+    screen.getByText(
+      'Für diesen Monat liegen keine Messwerte vor. Berechnet ist nur der Grundpreis.',
+    ),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/Ihres Stroms lief nachts/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: 'Verbrauch pro Tag' })).not.toBeInTheDocument()
+})
