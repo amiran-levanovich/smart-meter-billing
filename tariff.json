@@ -1,0 +1,5 @@
+{
+  "day": { "from": "06:00", "to": "22:00", "ct_per_kwh": 31.847 },
+  "night": { "ct_per_kwh": 19.392 },
+  "monthly_fee_eur": 12.90
+}
