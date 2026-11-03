@@ -1,4 +1,4 @@
-.PHONY: install dev dev-backend dev-frontend test lint crosscheck types
+.PHONY: install dev dev-backend dev-frontend demo test lint crosscheck types
 
 install:
 	cd backend && uv sync
@@ -12,6 +12,9 @@ dev-backend:
 
 dev-frontend:
 	cd frontend && npm run dev
+
+demo:
+	cd backend && uv run python -m scripts.seed_demo
 
 test:
 	cd backend && uv run pytest -q

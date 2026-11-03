@@ -12,6 +12,7 @@ import {
   formatWhAsKwh,
   formatWholeEur,
   lastDayOf,
+  shiftMonth,
 } from './format'
 import type { Bill, LineItem, Notice } from './types'
 
@@ -52,7 +53,9 @@ function explain(notice: Notice) {
   }
 }
 
-export default function BillScreen({ bill }: { bill: Bill }) {
+type Props = { bill: Bill; onMonthChange?: (month: string) => void }
+
+export default function BillScreen({ bill, onMonthChange }: Props) {
   const { period, vat } = bill
 
   return (
@@ -66,7 +69,29 @@ export default function BillScreen({ bill }: { bill: Bill }) {
           </div>
         </header>
 
-        <h1>Ihre Stromabrechnung {formatMonthAndYear(period.start)}</h1>
+        <div className="title-row">
+          {onMonthChange && (
+            <button
+              type="button"
+              className="month-step"
+              aria-label="Vorheriger Monat"
+              onClick={() => onMonthChange(shiftMonth(period.month, -1))}
+            >
+              ‹
+            </button>
+          )}
+          <h1>Ihre Stromabrechnung {formatMonthAndYear(period.start)}</h1>
+          {onMonthChange && (
+            <button
+              type="button"
+              className="month-step"
+              aria-label="Nächster Monat"
+              onClick={() => onMonthChange(shiftMonth(period.month, 1))}
+            >
+              ›
+            </button>
+          )}
+        </div>
         <p className="subline">
           Monatliche Abrechnungsinformation · Abrechnungszeitraum {formatDate(period.start)} –{' '}
           {lastDayOf(period.end)}

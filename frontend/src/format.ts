@@ -50,3 +50,8 @@ export const formatMonth = (instant: string) => monthName.format(new Date(instan
 export const formatMonthAndYear = (instant: string) => monthAndYear.format(new Date(instant))
 export const lastDayOf = (periodEnd: string) =>
   formatDate(new Date(new Date(periodEnd).getTime() - 1).toISOString())
+export const shiftMonth = (month: string, delta: number) => {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const shifted = new Date(Date.UTC(year, monthNumber - 1 + delta, 1))
+  return shifted.toISOString().slice(0, 7)
+}

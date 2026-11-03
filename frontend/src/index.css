@@ -292,3 +292,23 @@ tfoot th {
 .chart .recharts-surface:focus:not(:focus-visible) {
   outline: none;
 }
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.month-step {
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--navy);
+  cursor: pointer;
+}

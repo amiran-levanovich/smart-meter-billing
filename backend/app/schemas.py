@@ -129,3 +129,7 @@ class IngestOut(BaseModel):
     inserted: int
     corrected: int
     unchanged: int
+
+
+class LatestMonthOut(BaseModel):
+    month: str

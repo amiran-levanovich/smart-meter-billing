@@ -27,6 +27,24 @@
         }
       }
     },
+    "/api/months/latest": {
+      "get": {
+        "summary": "Latest Month",
+        "operationId": "latest_month_api_months_latest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatestMonthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/bill/{month}": {
       "get": {
         "summary": "Get Bill",
@@ -263,6 +281,19 @@
           "unchanged"
         ],
         "title": "IngestOut"
+      },
+      "LatestMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month"
+        ],
+        "title": "LatestMonthOut"
       },
       "LineItemOut": {
         "properties": {

@@ -7,15 +7,16 @@ from typing import Annotated
 from alembic import command
 from alembic.config import Config
 from fastapi import Depends, FastAPI, HTTPException, Path, Request
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app import config
+from app.billing import BERLIN
 from app.bills import bill_for_meter
-from app.db import CustomerRecord, MeterRecord
+from app.db import CustomerRecord, MeterRecord, ReadingRecord
 from app.ingest import ingest_readings
-from app.schemas import BillOut, IngestOut, ReadingIn, bill_out
+from app.schemas import BillOut, IngestOut, LatestMonthOut, ReadingIn, bill_out
 from app.seed import seed_if_empty
 
 
@@ -90,6 +91,19 @@ def meter_by_public_id(public_id: uuid.UUID, session: SessionDep) -> MeterRecord
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/months/latest")
+def latest_month(
+    session: SessionDep, customer: Annotated[CustomerRecord, Depends(current_customer)]
+) -> LatestMonthOut:
+    meter_ids = [meter.id for meter in customer.meters]
+    last = session.scalar(
+        select(func.max(ReadingRecord.interval_start)).where(ReadingRecord.meter_id.in_(meter_ids))
+    )
+    if last is None:
+        raise HTTPException(404, "no readings yet")
+    return LatestMonthOut(month=last.replace(tzinfo=UTC).astimezone(BERLIN).strftime("%Y-%m"))
 
 
 @app.get("/api/bill/{month}")
