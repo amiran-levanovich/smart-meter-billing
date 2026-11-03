@@ -288,3 +288,7 @@ tfoot th {
     max-width: 220px;
   }
 }
+
+.chart .recharts-surface:focus:not(:focus-visible) {
+  outline: none;
+}
