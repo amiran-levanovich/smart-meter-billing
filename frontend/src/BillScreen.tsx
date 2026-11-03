@@ -45,7 +45,9 @@ function explain(notice: Notice) {
     case 'estimated':
       return `Für den ${at}, fehlt ein Messwert. Wir haben ihn aus den Werten davor und danach geschätzt: ${formatWhAsKwh(notice.energy_wh!)} kWh (rund ${formatEur(notice.amount_eur!)}). Kommt der echte Wert noch, passen wir die Abrechnung an.`
     case 'dst':
-      return `Am ${day} wurde die Uhr von 3 auf 2 Uhr zurückgestellt. Der Tag hatte 25 Stunden; die zusätzliche Stunde ist zum Nachtpreis berechnet.`
+      return notice.interval_start.endsWith('+02:00')
+        ? `Am ${day} wurde die Uhr von 2 auf 3 Uhr vorgestellt. Der Tag hatte 23 Stunden.`
+        : `Am ${day} wurde die Uhr von 3 auf 2 Uhr zurückgestellt. Der Tag hatte 25 Stunden; die zusätzliche Stunde ist zum Nachtpreis berechnet.`
   }
 }
 
@@ -133,7 +135,10 @@ export default function BillScreen({ bill }: { bill: Bill }) {
           </section>
         )}
       </main>
-      <footer className="foot">Alle Preise inkl. {formatRate(bill.vat.rate)} Umsatzsteuer.</footer>
+      <footer className="foot">
+        Alle Preise {bill.prices_include_vat ? 'inkl.' : 'zzgl.'} {formatRate(bill.vat.rate)}{' '}
+        Umsatzsteuer.
+      </footer>
     </div>
   )
 }
