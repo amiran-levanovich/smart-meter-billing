@@ -57,6 +57,7 @@ type Props = { bill: Bill; onMonthChange?: (month: string) => void }
 
 export default function BillScreen({ bill, onMonthChange }: Props) {
   const { period, vat } = bill
+  const measured = bill.lines.some((line) => line.unit === 'kWh' && Number(line.quantity) > 0)
 
   return (
     <div className="page">
@@ -145,13 +146,21 @@ export default function BillScreen({ bill, onMonthChange }: Props) {
           </table>
         </section>
 
-        <p className="why">
-          <strong>{bill.night_share_percent} %</strong> Ihres Stroms lief nachts zum günstigeren Preis.
-          Das hat Sie gegenüber dem Tagpreis rund <strong>{formatWholeEur(bill.night_saving_eur)}</strong>{' '}
-          weniger gekostet.
-        </p>
+        {measured ? (
+          <>
+            <p className="why">
+              <strong>{bill.night_share_percent} %</strong> Ihres Stroms lief nachts zum günstigeren
+              Preis. Das hat Sie gegenüber dem Tagpreis rund{' '}
+              <strong>{formatWholeEur(bill.night_saving_eur)}</strong> weniger gekostet.
+            </p>
 
-        <DailyChart daily={bill.daily} />
+            <DailyChart daily={bill.daily} />
+          </>
+        ) : (
+          <p className="why">
+            Für diesen Monat liegen keine Messwerte vor. Berechnet ist nur der Grundpreis.
+          </p>
+        )}
 
         {bill.notices.length > 0 && (
           <section className="notices" aria-labelledby="notices-heading">
