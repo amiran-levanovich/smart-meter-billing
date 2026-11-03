@@ -184,10 +184,24 @@ def compute_bill(
         LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
     ]
     vat = vat_of(sum((item.amount_eur for item in lines), Decimal(0)), prices_include_vat)
+    daily = [
+        DailyUsage(
+            local_date,
+            to_kwh(wh["day"]),
+            to_kwh(wh["night"]),
+            eur(to_kwh(wh["day"]), price["day"]),
+            eur(to_kwh(wh["night"]), price["night"]),
+        )
+        for local_date, wh in per_date.items()
+    ]
+    notices = sorted(
+        clock_changes(intervals) + corrections + estimates, key=lambda n: n.interval_start
+    )
+    period_end = intervals[-1] + INTERVAL if intervals else start
 
     return Bill(
         period_start=start.astimezone(BERLIN),
-        period_end=(intervals[-1] + INTERVAL if intervals else start).astimezone(BERLIN),
+        period_end=period_end.astimezone(BERLIN),
         in_progress=cutoff < end,
         lines=lines,
         total_eur=vat.net_eur + vat.vat_eur,
@@ -195,19 +209,8 @@ def compute_bill(
         vat=vat,
         night_share_percent=night_share_percent(day_wh, night_wh),
         night_saving_eur=eur(to_kwh(night_wh), price["day"] - price["night"]),
-        daily=[
-            DailyUsage(
-                local_date,
-                to_kwh(wh["day"]),
-                to_kwh(wh["night"]),
-                eur(to_kwh(wh["day"]), price["day"]),
-                eur(to_kwh(wh["night"]), price["night"]),
-            )
-            for local_date, wh in per_date.items()
-        ],
-        notices=sorted(
-            clock_changes(intervals) + corrections + estimates, key=lambda n: n.interval_start
-        ),
+        daily=daily,
+        notices=notices,
         measured_intervals=len(measured.keys() & in_month),
         unbilled_intervals=unbilled,
         day_start=tariff.day_start,
