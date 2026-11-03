@@ -39,3 +39,30 @@ test('breaks the total into lines the customer can add up', () => {
     'Gesamtbetrag2.295,99 €',
   ])
 })
+
+const text = (element: HTMLElement) => element.textContent?.replace(/ /g, ' ')
+
+test('explains how much ran at night and what that saved', () => {
+  render(<BillScreen bill={october} />)
+
+  expect(text(screen.getByText(/Ihres Stroms lief nachts/))).toBe(
+    '48 % Ihres Stroms lief nachts zum günstigeren Preis. Das hat Sie gegenüber dem Tagpreis rund 533 € weniger gekostet.',
+  )
+})
+
+test('explains each notice in one sentence', () => {
+  render(<BillScreen bill={october} />)
+
+  const notices = screen.getByRole('region', { name: 'Hinweise' })
+  expect(within(notices).getAllByRole('listitem').map(text)).toEqual([
+    'korrigiert Ihr Zähler hat den Wert für den 08.10., 10:15 Uhr, nachträglich korrigiert: von 2,419 auf 3,200 kWh. Berechnet ist der korrigierte Wert.',
+    'geschätzt Für den 13.10., 14:30 Uhr, fehlt ein Messwert. Wir haben ihn aus den Werten davor und danach geschätzt: 2,288 kWh (rund 0,73 €). Kommt der echte Wert noch, passen wir die Abrechnung an.',
+    'Zeitumstellung Am 25.10. wurde die Uhr von 3 auf 2 Uhr zurückgestellt. Der Tag hatte 25 Stunden; die zusätzliche Stunde ist zum Nachtpreis berechnet.',
+  ])
+})
+
+test('states that prices include VAT', () => {
+  render(<BillScreen bill={october} />)
+
+  expect(screen.getByRole('contentinfo')).toHaveTextContent('Alle Preise inkl. 19 % Umsatzsteuer.')
+})
