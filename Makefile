@@ -1,4 +1,4 @@
-.PHONY: install dev dev-backend dev-frontend test lint crosscheck
+.PHONY: install dev dev-backend dev-frontend test lint crosscheck types
 
 install:
 	cd backend && uv sync
@@ -23,3 +23,7 @@ lint:
 
 crosscheck:
 	cd backend && uv run --group crosscheck python scripts/crosscheck.py
+
+types:
+	cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2, ensure_ascii=False))" > ../frontend/openapi.json
+	cd frontend && npx openapi-typescript openapi.json -o src/api.d.ts

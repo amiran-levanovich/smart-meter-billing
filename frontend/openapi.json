@@ -1,0 +1,391 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WattWunder Billing",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bill/{month}": {
+      "get": {
+        "summary": "Get Bill",
+        "operationId": "get_bill_api_bill__month__get",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BillOut": {
+        "properties": {
+          "period": {
+            "$ref": "#/components/schemas/Period"
+          },
+          "customer_name": {
+            "type": "string",
+            "title": "Customer Name"
+          },
+          "meter_number": {
+            "type": "string",
+            "title": "Meter Number"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LineItemOut"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "total_eur": {
+            "type": "string",
+            "title": "Total Eur"
+          },
+          "prices_include_vat": {
+            "type": "boolean",
+            "title": "Prices Include Vat"
+          },
+          "vat": {
+            "$ref": "#/components/schemas/VatOut"
+          },
+          "night_share_percent": {
+            "type": "string",
+            "title": "Night Share Percent"
+          },
+          "night_saving_eur": {
+            "type": "string",
+            "title": "Night Saving Eur"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DailyOut"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeOut"
+            },
+            "type": "array",
+            "title": "Notices"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "customer_name",
+          "meter_number",
+          "lines",
+          "total_eur",
+          "prices_include_vat",
+          "vat",
+          "night_share_percent",
+          "night_saving_eur",
+          "daily",
+          "notices"
+        ],
+        "title": "BillOut"
+      },
+      "DailyOut": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "day_kwh": {
+            "type": "string",
+            "title": "Day Kwh"
+          },
+          "night_kwh": {
+            "type": "string",
+            "title": "Night Kwh"
+          },
+          "day_eur": {
+            "type": "string",
+            "title": "Day Eur"
+          },
+          "night_eur": {
+            "type": "string",
+            "title": "Night Eur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "day_kwh",
+          "night_kwh",
+          "day_eur",
+          "night_eur"
+        ],
+        "title": "DailyOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LineItemOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "day",
+              "night",
+              "fee"
+            ],
+            "title": "Kind"
+          },
+          "quantity": {
+            "type": "string",
+            "title": "Quantity"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "kWh",
+              "month"
+            ],
+            "title": "Unit"
+          },
+          "unit_price": {
+            "type": "string",
+            "title": "Unit Price"
+          },
+          "unit_price_unit": {
+            "type": "string",
+            "enum": [
+              "ct/kWh",
+              "EUR"
+            ],
+            "title": "Unit Price Unit"
+          },
+          "amount_eur": {
+            "type": "string",
+            "title": "Amount Eur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "quantity",
+          "unit",
+          "unit_price",
+          "unit_price_unit",
+          "amount_eur"
+        ],
+        "title": "LineItemOut"
+      },
+      "NoticeOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "dst",
+              "estimated",
+              "corrected"
+            ],
+            "title": "Kind"
+          },
+          "interval_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Interval Start"
+          },
+          "energy_wh": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Wh"
+          },
+          "previous_energy_wh": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Energy Wh"
+          },
+          "amount_eur": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Eur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "interval_start",
+          "energy_wh",
+          "previous_energy_wh",
+          "amount_eur"
+        ],
+        "title": "NoticeOut"
+      },
+      "Period": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "title": "Month"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "start",
+          "end"
+        ],
+        "title": "Period"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VatOut": {
+        "properties": {
+          "rate": {
+            "type": "string",
+            "title": "Rate"
+          },
+          "net_eur": {
+            "type": "string",
+            "title": "Net Eur"
+          },
+          "vat_eur": {
+            "type": "string",
+            "title": "Vat Eur"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rate",
+          "net_eur",
+          "vat_eur"
+        ],
+        "title": "VatOut"
+      }
+    }
+  }
+}

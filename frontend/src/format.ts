@@ -1,0 +1,28 @@
+const euro = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })
+const threeDecimals = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
+})
+const percent = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
+const calendarDate = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'Europe/Berlin',
+})
+const monthName = new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'Europe/Berlin' })
+const monthAndYear = new Intl.DateTimeFormat('de-DE', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'Europe/Berlin',
+})
+
+export const formatEur = (amount: string) => euro.format(Number(amount))
+export const formatKwh = (kwh: string) => `${threeDecimals.format(Number(kwh))} kWh`
+export const formatCtPerKwh = (ct: string) => `${threeDecimals.format(Number(ct))} ct/kWh`
+export const formatPercent = (value: string) => `${percent.format(Number(value) * 100)} %`
+export const formatDate = (instant: string) => calendarDate.format(new Date(instant))
+export const formatMonth = (instant: string) => monthName.format(new Date(instant))
+export const formatMonthAndYear = (instant: string) => monthAndYear.format(new Date(instant))
+export const lastDayOf = (periodEnd: string) =>
+  formatDate(new Date(new Date(periodEnd).getTime() - 1).toISOString())

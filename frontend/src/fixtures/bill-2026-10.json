@@ -1,0 +1,286 @@
+{
+  "period": {
+    "month": "2026-10",
+    "start": "2026-10-01T00:00:00+02:00",
+    "end": "2026-11-01T00:00:00+01:00"
+  },
+  "customer_name": "Bäckerei Sonnenschein",
+  "meter_number": "1EBZ0100123456",
+  "lines": [
+    {
+      "kind": "day",
+      "quantity": "4562.796",
+      "unit": "kWh",
+      "unit_price": "31.847",
+      "unit_price_unit": "ct/kWh",
+      "amount_eur": "1453.11"
+    },
+    {
+      "kind": "night",
+      "quantity": "4279.988",
+      "unit": "kWh",
+      "unit_price": "19.392",
+      "unit_price_unit": "ct/kWh",
+      "amount_eur": "829.98"
+    },
+    {
+      "kind": "fee",
+      "quantity": "1",
+      "unit": "month",
+      "unit_price": "12.90",
+      "unit_price_unit": "EUR",
+      "amount_eur": "12.90"
+    }
+  ],
+  "total_eur": "2295.99",
+  "prices_include_vat": true,
+  "vat": {
+    "rate": "0.19",
+    "net_eur": "1929.40",
+    "vat_eur": "366.59"
+  },
+  "night_share_percent": "48",
+  "night_saving_eur": "533.07",
+  "daily": [
+    {
+      "date": "2026-10-01",
+      "day_kwh": "160.416",
+      "night_kwh": "154.949",
+      "day_eur": "51.09",
+      "night_eur": "30.05"
+    },
+    {
+      "date": "2026-10-02",
+      "day_kwh": "169.474",
+      "night_kwh": "156.612",
+      "day_eur": "53.97",
+      "night_eur": "30.37"
+    },
+    {
+      "date": "2026-10-03",
+      "day_kwh": "166.579",
+      "night_kwh": "161.729",
+      "day_eur": "53.05",
+      "night_eur": "31.36"
+    },
+    {
+      "date": "2026-10-04",
+      "day_kwh": "29.609",
+      "night_kwh": "14.964",
+      "day_eur": "9.43",
+      "night_eur": "2.90"
+    },
+    {
+      "date": "2026-10-05",
+      "day_kwh": "163.402",
+      "night_kwh": "152.293",
+      "day_eur": "52.04",
+      "night_eur": "29.53"
+    },
+    {
+      "date": "2026-10-06",
+      "day_kwh": "177.402",
+      "night_kwh": "171.159",
+      "day_eur": "56.50",
+      "night_eur": "33.19"
+    },
+    {
+      "date": "2026-10-07",
+      "day_kwh": "172.667",
+      "night_kwh": "163.636",
+      "day_eur": "54.99",
+      "night_eur": "31.73"
+    },
+    {
+      "date": "2026-10-08",
+      "day_kwh": "153.728",
+      "night_kwh": "145.363",
+      "day_eur": "48.96",
+      "night_eur": "28.19"
+    },
+    {
+      "date": "2026-10-09",
+      "day_kwh": "161.101",
+      "night_kwh": "152.793",
+      "day_eur": "51.31",
+      "night_eur": "29.63"
+    },
+    {
+      "date": "2026-10-10",
+      "day_kwh": "150.201",
+      "night_kwh": "149.196",
+      "day_eur": "47.83",
+      "night_eur": "28.93"
+    },
+    {
+      "date": "2026-10-11",
+      "day_kwh": "31.319",
+      "night_kwh": "15.301",
+      "day_eur": "9.97",
+      "night_eur": "2.97"
+    },
+    {
+      "date": "2026-10-12",
+      "day_kwh": "169.101",
+      "night_kwh": "163.666",
+      "day_eur": "53.85",
+      "night_eur": "31.74"
+    },
+    {
+      "date": "2026-10-13",
+      "day_kwh": "164.560",
+      "night_kwh": "151.383",
+      "day_eur": "52.41",
+      "night_eur": "29.36"
+    },
+    {
+      "date": "2026-10-14",
+      "day_kwh": "169.445",
+      "night_kwh": "156.050",
+      "day_eur": "53.96",
+      "night_eur": "30.26"
+    },
+    {
+      "date": "2026-10-15",
+      "day_kwh": "172.559",
+      "night_kwh": "159.011",
+      "day_eur": "54.95",
+      "night_eur": "30.84"
+    },
+    {
+      "date": "2026-10-16",
+      "day_kwh": "167.326",
+      "night_kwh": "155.950",
+      "day_eur": "53.29",
+      "night_eur": "30.24"
+    },
+    {
+      "date": "2026-10-17",
+      "day_kwh": "153.064",
+      "night_kwh": "152.305",
+      "day_eur": "48.75",
+      "night_eur": "29.53"
+    },
+    {
+      "date": "2026-10-18",
+      "day_kwh": "29.997",
+      "night_kwh": "14.549",
+      "day_eur": "9.55",
+      "night_eur": "2.82"
+    },
+    {
+      "date": "2026-10-19",
+      "day_kwh": "163.702",
+      "night_kwh": "156.022",
+      "day_eur": "52.13",
+      "night_eur": "30.26"
+    },
+    {
+      "date": "2026-10-20",
+      "day_kwh": "171.924",
+      "night_kwh": "159.910",
+      "day_eur": "54.75",
+      "night_eur": "31.01"
+    },
+    {
+      "date": "2026-10-21",
+      "day_kwh": "169.282",
+      "night_kwh": "157.688",
+      "day_eur": "53.91",
+      "night_eur": "30.58"
+    },
+    {
+      "date": "2026-10-22",
+      "day_kwh": "170.551",
+      "night_kwh": "155.321",
+      "day_eur": "54.32",
+      "night_eur": "30.12"
+    },
+    {
+      "date": "2026-10-23",
+      "day_kwh": "170.569",
+      "night_kwh": "161.980",
+      "day_eur": "54.32",
+      "night_eur": "31.41"
+    },
+    {
+      "date": "2026-10-24",
+      "day_kwh": "155.840",
+      "night_kwh": "156.115",
+      "day_eur": "49.63",
+      "night_eur": "30.27"
+    },
+    {
+      "date": "2026-10-25",
+      "day_kwh": "30.425",
+      "night_kwh": "16.740",
+      "day_eur": "9.69",
+      "night_eur": "3.25"
+    },
+    {
+      "date": "2026-10-26",
+      "day_kwh": "156.352",
+      "night_kwh": "150.320",
+      "day_eur": "49.79",
+      "night_eur": "29.15"
+    },
+    {
+      "date": "2026-10-27",
+      "day_kwh": "163.355",
+      "night_kwh": "155.151",
+      "day_eur": "52.02",
+      "night_eur": "30.09"
+    },
+    {
+      "date": "2026-10-28",
+      "day_kwh": "167.343",
+      "night_kwh": "160.134",
+      "day_eur": "53.29",
+      "night_eur": "31.05"
+    },
+    {
+      "date": "2026-10-29",
+      "day_kwh": "167.400",
+      "night_kwh": "161.172",
+      "day_eur": "53.31",
+      "night_eur": "31.25"
+    },
+    {
+      "date": "2026-10-30",
+      "day_kwh": "164.421",
+      "night_kwh": "148.251",
+      "day_eur": "52.36",
+      "night_eur": "28.75"
+    },
+    {
+      "date": "2026-10-31",
+      "day_kwh": "149.682",
+      "night_kwh": "150.275",
+      "day_eur": "47.67",
+      "night_eur": "29.14"
+    }
+  ],
+  "notices": [
+    {
+      "kind": "corrected",
+      "interval_start": "2026-10-08T10:15:00+02:00",
+      "energy_wh": 3200,
+      "previous_energy_wh": 2419,
+      "amount_eur": null
+    },
+    {
+      "kind": "estimated",
+      "interval_start": "2026-10-13T14:30:00+02:00",
+      "energy_wh": 2288,
+      "previous_energy_wh": null,
+      "amount_eur": "0.73"
+    },
+    {
+      "kind": "dst",
+      "interval_start": "2026-10-25T02:00:00+01:00",
+      "energy_wh": null,
+      "previous_energy_wh": null,
+      "amount_eur": null
+    }
+  ]
+}

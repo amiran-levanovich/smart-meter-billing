@@ -98,9 +98,14 @@ def eur(kwh: Decimal, ct_per_kwh: Decimal) -> Decimal:
     return to_cents(kwh * ct_per_kwh / 100)
 
 
-def month_intervals(year: int, month: int) -> list[datetime]:
+def month_bounds(year: int, month: int) -> tuple[datetime, datetime]:
     start = datetime(year, month, 1, tzinfo=BERLIN).astimezone(UTC)
     end = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=BERLIN).astimezone(UTC)
+    return start, end
+
+
+def month_intervals(year: int, month: int) -> list[datetime]:
+    start, end = month_bounds(year, month)
     count = (end - start) // INTERVAL
     return [start + i * INTERVAL for i in range(count)]
 

@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "WattWunder smart-meter billing: bill API"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi>=0.162.0",
+    "sqlalchemy>=2.1.6",
     "tzdata>=2026.6",
     "uvicorn>=0.54.0",
 ]
