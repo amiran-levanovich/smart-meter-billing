@@ -22,7 +22,7 @@ class Tariff:
 
 @dataclass(frozen=True)
 class Reading:
-    interval_start: datetime  # aware
+    interval_start: datetime  # aware UTC
     energy_wh: int
 
 
@@ -35,8 +35,18 @@ class LineItem:
 
 
 @dataclass(frozen=True)
+class Notice:
+    kind: str  # "dst" | "estimated" | "corrected"
+    interval_start: datetime
+    energy_wh: int | None = None
+    previous_energy_wh: int | None = None
+    amount_eur: Decimal | None = None
+
+
+@dataclass(frozen=True)
 class Bill:
     lines: list[LineItem]
+    notices: list[Notice]
 
 
 def to_cents(value: Decimal) -> Decimal:
@@ -57,8 +67,9 @@ def is_day(interval_start: datetime, tariff: Tariff) -> bool:
 
 def compute_bill(readings: Iterable[Reading], tariff: Tariff, year: int, month: int) -> Bill:
     energy = {r.interval_start: r.energy_wh for r in readings}
+    intervals = month_intervals(year, month)
     day_wh = night_wh = 0
-    for t in month_intervals(year, month):
+    for t in intervals:
         if is_day(t, tariff):
             day_wh += energy[t]
         else:
@@ -73,5 +84,17 @@ def compute_bill(readings: Iterable[Reading], tariff: Tariff, year: int, month: 
             energy_line("day", day_wh, tariff.day_ct_per_kwh),
             energy_line("night", night_wh, tariff.night_ct_per_kwh),
             LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
-        ]
+        ],
+        notices=clock_changes(intervals),
     )
+
+
+def clock_changes(intervals: list[datetime]) -> list[Notice]:
+    def offset(t: datetime) -> timedelta | None:
+        return t.astimezone(BERLIN).utcoffset()
+
+    return [
+        Notice("dst", after)
+        for before, after in zip(intervals, intervals[1:], strict=False)
+        if offset(before) != offset(after)
+    ]
