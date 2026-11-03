@@ -76,6 +76,7 @@ SessionDep = Annotated[Session, Depends(get_session)]
 
 
 def current_customer(session: SessionDep) -> CustomerRecord:
+    # shortcut: no login (task says skip auth), always the first customer; real auth goes here
     customer = session.scalar(select(CustomerRecord).order_by(CustomerRecord.id).limit(1))
     if customer is None:
         raise HTTPException(404, "no customer")
@@ -83,6 +84,7 @@ def current_customer(session: SessionDep) -> CustomerRecord:
 
 
 def meter_by_public_id(public_id: uuid.UUID, session: SessionDep) -> MeterRecord:
+    # shortcut: no device auth, the public ID is the only key; check a per-meter token here
     meter = session.scalar(select(MeterRecord).where(MeterRecord.public_id == public_id))
     if meter is None:
         raise HTTPException(404, "unknown meter")
