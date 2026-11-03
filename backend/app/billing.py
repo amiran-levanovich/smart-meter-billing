@@ -26,6 +26,7 @@ class Tariff:
 class Reading:
     interval_start: datetime  # aware UTC
     energy_wh: int
+    previous_energy_wh: int | None = None  # set when this reading replaced a different value
 
 
 @dataclass(frozen=True)
@@ -88,13 +89,18 @@ def compute_bill(
     month: int,
     prices_include_vat: bool = True,
 ) -> Bill:
+    readings = list(readings)
     measured = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
     if not measured.keys() & set(intervals):
         raise NoReadingsError(f"no readings for {year}-{month:02d}")
 
     times = sorted(measured)
-    notices = []
+    notices = clock_changes(intervals) + [
+        Notice("corrected", r.interval_start, r.energy_wh, r.previous_energy_wh)
+        for r in readings
+        if r.previous_energy_wh is not None and intervals[0] <= r.interval_start <= intervals[-1]
+    ]
     day_wh = night_wh = 0
     for t in intervals:
         wh = measured.get(t)
@@ -128,7 +134,7 @@ def compute_bill(
         total_eur=vat.net_eur + vat.vat_eur,
         prices_include_vat=prices_include_vat,
         vat=vat,
-        notices=clock_changes(intervals) + notices,
+        notices=sorted(notices, key=lambda n: n.interval_start),
     )
 
 
