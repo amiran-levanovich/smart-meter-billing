@@ -2,6 +2,7 @@
   --navy: #0f2a3f;
   --navy-muted: #4a5d6c;
   --amber: #f5a623;
+  --amber-soft: #fcebcb;
   --off-white: #f7f5f0;
   --white: #ffffff;
   --line: #e4e0d6;
@@ -146,4 +147,43 @@ tfoot th {
 
 .dot-fee {
   background: var(--line);
+}
+
+.why {
+  font-size: 1.125rem;
+  max-width: 62ch;
+  margin: 24px 0 32px;
+}
+
+.notices ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.notices li {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--amber-soft);
+  margin-right: 4px;
+}
+
+.foot {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.8125rem;
+  color: var(--navy-muted);
 }
