@@ -208,3 +208,34 @@ def test_gap_at_month_end_without_a_later_reading_copies_the_nearest():
 def test_month_without_readings_cannot_be_billed():
     with pytest.raises(NoReadingsError):
         bill_for({berlin(2026, 9, 30, 23, 45): 400})
+
+
+def test_corrected_reading_is_billed_at_its_latest_value_with_a_notice():
+    readings = [Reading(t, 0) for t in month_readings(2026, 10)]
+    corrected_at = berlin(2026, 10, 8, 10, 15)
+    readings = [r for r in readings if r.interval_start != corrected_at]
+    readings.append(Reading(corrected_at, 3200, previous_energy_wh=2419))
+
+    bill = compute_bill(readings, TARIFF, 2026, 10)
+
+    assert line(bill, "day").quantity == Decimal("3.200")
+    corrected = [n for n in bill.notices if n.kind == "corrected"]
+    assert [(n.interval_start, n.energy_wh, n.previous_energy_wh) for n in corrected] == [
+        (corrected_at, 3200, 2419)
+    ]
+
+
+def test_notices_are_in_chronological_order():
+    readings = month_readings(2026, 10)
+    del readings[berlin(2026, 10, 13, 14, 30)]
+    corrected_at = berlin(2026, 10, 8, 10, 15)
+    del readings[corrected_at]
+    bill = compute_bill(
+        [Reading(t, wh) for t, wh in readings.items()]
+        + [Reading(corrected_at, 3200, previous_energy_wh=2419)],
+        TARIFF,
+        2026,
+        10,
+    )
+
+    assert [n.kind for n in bill.notices] == ["corrected", "estimated", "dst"]
