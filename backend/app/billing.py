@@ -218,8 +218,10 @@ def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) 
 
 
 def clock_changes(intervals: list[datetime]) -> list[Notice]:
-    def offset(t: datetime) -> timedelta | None:
-        return t.astimezone(BERLIN).utcoffset()
+    def offset(t: datetime) -> timedelta:
+        utc_offset = t.astimezone(BERLIN).utcoffset()
+        assert utc_offset is not None
+        return utc_offset
 
     return [
         Notice("dst", after, clock="back" if offset(after) < offset(before) else "forward")

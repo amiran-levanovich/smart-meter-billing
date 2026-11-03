@@ -26,12 +26,12 @@ def main(readings_csv: Path, tariff_json: Path) -> None:
     )
     measured_wh = rows.drop_duplicates("start", keep="last").set_index("start")["energy_wh"]
 
-    month_start = measured_wh.index.tz_convert(BERLIN)[0].normalize()
+    month_start = pd.DatetimeIndex(measured_wh.index).tz_convert(BERLIN)[0].normalize()
     month_end = month_start + pd.offsets.MonthBegin(1)
     month_grid = pd.date_range(month_start, month_end, freq="15min", inclusive="left")
     grid_wh = measured_wh.reindex(month_grid.tz_convert("UTC"))
     missing = grid_wh.isna()
-    gap_length = missing.groupby((~missing).cumsum()).transform("sum")
+    gap_length = pd.Series(missing.groupby((~missing).cumsum()).transform("sum"))
     month_wh = (
         grid_wh.interpolate(limit_area="inside")
         .where(~missing | (gap_length <= 4))
@@ -39,7 +39,7 @@ def main(readings_csv: Path, tariff_json: Path) -> None:
         .floordiv(1)
     )
 
-    local_times = month_wh.index.tz_convert(BERLIN).time
+    local_times = pd.DatetimeIndex(month_wh.index).tz_convert(BERLIN).time
     is_day = (local_times >= day_from) & (local_times < day_to)
     day_kwh = month_wh[is_day].sum() / 1000
     night_kwh = month_wh[~is_day].sum() / 1000
