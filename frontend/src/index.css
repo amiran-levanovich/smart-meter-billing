@@ -271,6 +271,10 @@ tfoot th {
     text-align: left;
   }
 
+  h1 {
+    font-size: 1.25rem;
+  }
+
   thead th:nth-child(2),
   thead th:nth-child(3),
   tbody td:nth-child(2),
@@ -311,4 +315,12 @@ tfoot th {
   background: var(--white);
   color: var(--navy);
   cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .month-step {
+    width: 32px;
+    height: 32px;
+    font-size: 1.25rem;
+  }
 }

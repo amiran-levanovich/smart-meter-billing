@@ -167,6 +167,8 @@ def compute_bill(
     measured = {r.interval_start: r.energy_wh for r in readings}
     start, end = month_bounds(year, month)
     cutoff = end if now is None else min(end, now)
+    if cutoff < end and measured:
+        cutoff = min(cutoff, max(measured) + INTERVAL)
     intervals = [t for t in month_intervals(year, month) if t + INTERVAL <= cutoff]
     in_month = set(intervals)
 
@@ -202,7 +204,7 @@ def compute_bill(
     return Bill(
         period_start=start.astimezone(BERLIN),
         period_end=period_end.astimezone(BERLIN),
-        in_progress=cutoff < end,
+        in_progress=now is not None and now < end,
         lines=lines,
         total_eur=vat.net_eur + vat.vat_eur,
         prices_include_vat=prices_include_vat,

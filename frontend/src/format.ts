@@ -12,6 +12,7 @@ const oneDecimal = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
+const hours = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 })
 const percent = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 const calendarDate = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
@@ -57,4 +58,4 @@ export const shiftMonth = (month: string, delta: number) => {
 }
 export const formatClock = (clock: string) =>
   clock.endsWith(':00:00') ? String(Number(clock.slice(0, 2))) : `${Number(clock.slice(0, 2))}:${clock.slice(3, 5)}`
-export const formatHours = (intervals: number) => oneDecimal.format(intervals / 4).replace(/,0$/, '')
+export const formatHours = (intervals: number) => hours.format(intervals / 4)
