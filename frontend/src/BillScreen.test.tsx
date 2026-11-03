@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { expect, test } from 'vitest'
 import BillScreen from './BillScreen'
 import bill from './fixtures/bill-2026-10.json'
@@ -83,4 +83,17 @@ test('states that VAT comes on top when prices are net', () => {
   render(<BillScreen bill={{ ...october, prices_include_vat: false } as Bill} />)
 
   expect(screen.getByRole('contentinfo')).toHaveTextContent('Alle Preise zzgl. 19 % Umsatzsteuer.')
+})
+
+test('switches the daily chart between energy and cost', () => {
+  render(<BillScreen bill={october} />)
+
+  const chart = screen.getByRole('region', { name: 'Verbrauch pro Tag' })
+  expect(within(chart).getByText('kWh', { selector: '.axis-unit' })).toBeInTheDocument()
+
+  fireEvent.click(within(chart).getByRole('button', { name: '€' }))
+
+  expect(chart).toHaveAccessibleName('Kosten pro Tag')
+  expect(within(chart).getByText('€', { selector: '.axis-unit' })).toBeInTheDocument()
+  expect(within(chart).getByRole('button', { name: '€' })).toHaveAttribute('aria-pressed', 'true')
 })
