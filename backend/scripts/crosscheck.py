@@ -1,11 +1,12 @@
 import json
 import sys
+from datetime import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
+BERLIN = "Europe/Berlin"
 
 
 def main(readings_csv: Path, tariff_json: Path) -> None:
@@ -13,31 +14,37 @@ def main(readings_csv: Path, tariff_json: Path) -> None:
     day_ct = tariff["day"]["ct_per_kwh"]
     night_ct = tariff["night"]["ct_per_kwh"]
     fee = tariff["monthly_fee_eur"]
-    day_from, day_to = (int(tariff["day"][k][:2]) for k in ("from", "to"))
+    day_from = time.fromisoformat(tariff["day"]["from"])
+    day_to = time.fromisoformat(tariff["day"]["to"])
 
-    df = pd.read_csv(readings_csv, parse_dates=["timestamp"])
-    first_of_its_local_time = ~df.duplicated("timestamp", keep="first")
-    df["start"] = (
-        df["timestamp"]
-        .dt.tz_localize("Europe/Berlin", ambiguous=first_of_its_local_time.to_numpy())
+    rows = pd.read_csv(readings_csv, parse_dates=["timestamp"])
+    first_of_its_local_time = ~rows.duplicated("timestamp", keep="first")
+    rows["start"] = (
+        rows["timestamp"]
+        .dt.tz_localize(BERLIN, ambiguous=first_of_its_local_time.to_numpy())
         .dt.tz_convert("UTC")
     )
-    energy = df.drop_duplicates("start", keep="last").set_index("start")["energy_wh"]
+    measured_wh = rows.drop_duplicates("start", keep="last").set_index("start")["energy_wh"]
 
-    local = energy.index.tz_convert("Europe/Berlin")
-    month_start = local[0].normalize()
+    month_start = measured_wh.index.tz_convert(BERLIN)[0].normalize()
     month_end = month_start + pd.offsets.MonthBegin(1)
-    full = pd.date_range(month_start, month_end, freq="15min", inclusive="left", tz="Europe/Berlin")
-    energy = energy.reindex(full.tz_convert("UTC")).interpolate().pipe(lambda s: np.floor(s + 0.5))
+    month_grid = pd.date_range(month_start, month_end, freq="15min", inclusive="left")
+    month_wh = (
+        measured_wh.reindex(month_grid.tz_convert("UTC"))
+        .interpolate(limit_direction="both")
+        .add(0.5)
+        .floordiv(1)
+    )
 
-    hours = energy.index.tz_convert("Europe/Berlin").hour
-    is_day = (hours >= day_from) & (hours < day_to)
-    day_kwh = energy[is_day].sum() / 1000
-    night_kwh = energy[~is_day].sum() / 1000
+    local_times = month_wh.index.tz_convert(BERLIN).time
+    is_day = (local_times >= day_from) & (local_times < day_to)
+    day_kwh = month_wh[is_day].sum() / 1000
+    night_kwh = month_wh[~is_day].sum() / 1000
     day_eur = day_kwh * day_ct / 100
     night_eur = night_kwh * night_ct / 100
 
-    print(f"intervals     {len(energy)}")
+    print(f"intervals     {len(month_wh)}")
+    print(f"measured      {measured_wh.index.isin(month_wh.index).sum()}")
     print(f"day kWh       {day_kwh:.3f}")
     print(f"night kWh     {night_kwh:.3f}")
     print(f"day EUR       {day_eur:.4f}")
