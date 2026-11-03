@@ -13,6 +13,13 @@ class Period(BaseModel):
     end: datetime
 
 
+UNITS: dict[str, tuple[Literal["kWh", "month"], Literal["ct/kWh", "EUR"]]] = {
+    "day": ("kWh", "ct/kWh"),
+    "night": ("kWh", "ct/kWh"),
+    "fee": ("month", "EUR"),
+}
+
+
 class LineItemOut(BaseModel):
     kind: Literal["day", "night", "fee"]
     quantity: Decimal
@@ -67,9 +74,9 @@ def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> B
             LineItemOut(
                 kind=item.kind,
                 quantity=item.quantity,
-                unit="month" if item.kind == "fee" else "kWh",
+                unit=UNITS[item.kind][0],
                 unit_price=item.unit_price,
-                unit_price_unit="EUR" if item.kind == "fee" else "ct/kWh",
+                unit_price_unit=UNITS[item.kind][1],
                 amount_eur=item.amount_eur,
             )
             for item in bill.lines

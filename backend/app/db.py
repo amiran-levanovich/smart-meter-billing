@@ -6,6 +6,8 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Time, TypeDec
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import DateTime, Uuid
 
+from app.billing import Tariff
+
 
 class UTCDateTime(TypeDecorator[datetime]):
     impl = DateTime
@@ -48,6 +50,15 @@ class TariffRecord(Base):
     night_ct_per_kwh: Mapped[Decimal] = mapped_column(DecimalText)
     monthly_fee_eur: Mapped[Decimal] = mapped_column(DecimalText)
 
+    def to_tariff(self) -> Tariff:
+        return Tariff(
+            self.day_start,
+            self.day_end,
+            self.day_ct_per_kwh,
+            self.night_ct_per_kwh,
+            self.monthly_fee_eur,
+        )
+
 
 class CustomerRecord(Base):
     __tablename__ = "customers"
@@ -81,9 +92,9 @@ class ReadingRecord(Base):
     received_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
-class ReadingCorrectionRecord(Base):
-    __tablename__ = "reading_corrections"
-    __table_args__ = (Index("ix_reading_corrections_meter_interval", "meter_id", "interval_start"),)
+class ReplacedReadingRecord(Base):
+    __tablename__ = "replaced_readings"
+    __table_args__ = (Index("ix_replaced_readings_meter_interval", "meter_id", "interval_start"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     meter_id: Mapped[int] = mapped_column(ForeignKey("meters.id"))

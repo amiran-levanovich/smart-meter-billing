@@ -5,7 +5,7 @@ import {
   formatKwh,
   formatMonth,
   formatMonthAndYear,
-  formatPercent,
+  formatRate,
   lastDayOf,
 } from './format'
 import type { Bill, LineItem } from './types'
@@ -49,7 +49,7 @@ export default function BillScreen({ bill }: { bill: Bill }) {
         <div className="total-label">Gesamtbetrag {formatMonth(period.start)}</div>
         <div className="total-amount">{formatEur(bill.total_eur)}</div>
         <div className="total-vat">
-          inkl. {formatPercent(vat.rate)} USt ({formatEur(vat.vat_eur)}) · Nettobetrag{' '}
+          inkl. {formatRate(vat.rate)} USt ({formatEur(vat.vat_eur)}) · Nettobetrag{' '}
           {formatEur(vat.net_eur)}
         </div>
       </section>

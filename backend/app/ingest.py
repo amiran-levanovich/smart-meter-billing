@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.billing import Reading
-from app.db import ReadingCorrectionRecord, ReadingRecord
+from app.db import ReadingRecord, ReplacedReadingRecord
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def ingest_readings(
             unchanged += 1
         else:
             session.add(
-                ReadingCorrectionRecord(
+                ReplacedReadingRecord(
                     meter_id=meter_id,
                     interval_start=row.interval_start,
                     energy_wh=row.energy_wh,

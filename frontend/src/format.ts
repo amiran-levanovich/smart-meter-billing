@@ -20,7 +20,7 @@ const monthAndYear = new Intl.DateTimeFormat('de-DE', {
 export const formatEur = (amount: string) => euro.format(Number(amount))
 export const formatKwh = (kwh: string) => `${threeDecimals.format(Number(kwh))} kWh`
 export const formatCtPerKwh = (ct: string) => `${threeDecimals.format(Number(ct))} ct/kWh`
-export const formatPercent = (value: string) => `${percent.format(Number(value) * 100)} %`
+export const formatRate = (value: string) => `${percent.format(Number(value) * 100)} %`
 export const formatDate = (instant: string) => calendarDate.format(new Date(instant))
 export const formatMonth = (instant: string) => monthName.format(new Date(instant))
 export const formatMonthAndYear = (instant: string) => monthAndYear.format(new Date(instant))

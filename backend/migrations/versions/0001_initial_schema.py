@@ -40,7 +40,7 @@ def upgrade() -> None:
         sa.CheckConstraint("energy_wh >= 0", name="energy_wh_not_negative"),
     )
     op.create_table(
-        "reading_corrections",
+        "replaced_readings",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("meter_id", sa.Integer(), sa.ForeignKey("meters.id"), nullable=False),
         sa.Column("interval_start", sa.DateTime(), nullable=False),
@@ -49,14 +49,14 @@ def upgrade() -> None:
         sa.Column("superseded_at", sa.DateTime(), nullable=False),
     )
     op.create_index(
-        "ix_reading_corrections_meter_interval",
-        "reading_corrections",
+        "ix_replaced_readings_meter_interval",
+        "replaced_readings",
         ["meter_id", "interval_start"],
     )
 
 
 def downgrade() -> None:
-    op.drop_table("reading_corrections")
+    op.drop_table("replaced_readings")
     op.drop_table("readings")
     op.drop_table("meters")
     op.drop_table("customers")

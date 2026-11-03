@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import config
 from app.billing import NoReadingsError
-from app.bills import bill_for_customer
+from app.bills import bill_for_meter
 from app.db import CustomerRecord
 from app.schemas import BillOut, bill_out
 from app.seed import seed_if_empty
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         event.listen(engine, "connect", lambda conn, _: conn.execute("PRAGMA foreign_keys=ON"))
     app.state.sessions = sessionmaker(engine)
     with app.state.sessions() as session:
-        seed_if_empty(session, config.TASK_DIR / "readings.csv", config.TASK_DIR / "tariff.json")
+        seed_if_empty(session, config.REPO_DIR / "readings.csv", config.REPO_DIR / "tariff.json")
     yield
     engine.dispose()
 
@@ -66,9 +66,11 @@ def get_bill(
     customer: Annotated[CustomerRecord, Depends(current_customer)],
 ) -> BillOut:
     year, month_number = map(int, month.split("-"))
+    [meter] = customer.meters
     try:
-        bill = bill_for_customer(session, customer, year, month_number, config.prices_include_vat())
+        bill = bill_for_meter(
+            session, meter.id, customer.tariff, year, month_number, config.prices_include_vat()
+        )
     except NoReadingsError:
         raise HTTPException(404, f"no readings for {month}") from None
-    [meter] = customer.meters
     return bill_out(bill, month, customer.name, meter.meter_number)

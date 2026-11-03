@@ -1,26 +1,24 @@
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.billing import Bill, Reading, Tariff, compute_bill, month_bounds
-from app.db import CustomerRecord, ReadingCorrectionRecord, ReadingRecord
+from app.billing import Bill, Reading, compute_bill, month_bounds
+from app.db import ReadingRecord, ReplacedReadingRecord, TariffRecord
 
 
-def bill_for_customer(
-    session: Session, customer: CustomerRecord, year: int, month: int, prices_include_vat: bool
+def bill_for_meter(
+    session: Session,
+    meter_id: int,
+    tariff: TariffRecord,
+    year: int,
+    month: int,
+    prices_include_vat: bool,
 ) -> Bill:
-    [meter] = customer.meters
-    record = customer.tariff
-    tariff = Tariff(
-        record.day_start,
-        record.day_end,
-        record.day_ct_per_kwh,
-        record.night_ct_per_kwh,
-        record.monthly_fee_eur,
+    readings = load_readings(session, meter_id, *month_bounds(year, month))
+    return compute_bill(
+        readings, tariff.to_tariff(), year, month, prices_include_vat=prices_include_vat
     )
-    readings = load_readings(session, meter.id, *month_bounds(year, month))
-    return compute_bill(readings, tariff, year, month, prices_include_vat=prices_include_vat)
 
 
 def load_readings(session: Session, meter_id: int, start: datetime, end: datetime) -> list[Reading]:
@@ -43,32 +41,19 @@ def load_readings(session: Session, meter_id: int, start: datetime, end: datetim
         .limit(1)
     ).all()
 
-    latest_superseded = (
-        select(
-            ReadingCorrectionRecord.interval_start,
-            func.max(ReadingCorrectionRecord.superseded_at).label("superseded_at"),
-        )
-        .where(
-            ReadingCorrectionRecord.meter_id == meter_id,
-            ReadingCorrectionRecord.interval_start >= start,
-            ReadingCorrectionRecord.interval_start < end,
-        )
-        .group_by(ReadingCorrectionRecord.interval_start)
-        .subquery()
-    )
-    previous = {
+    replaced_wh = {
         row.interval_start: row.energy_wh
         for row in session.scalars(
-            select(ReadingCorrectionRecord)
-            .join(
-                latest_superseded,
-                (ReadingCorrectionRecord.interval_start == latest_superseded.c.interval_start)
-                & (ReadingCorrectionRecord.superseded_at == latest_superseded.c.superseded_at),
+            select(ReplacedReadingRecord)
+            .where(
+                ReplacedReadingRecord.meter_id == meter_id,
+                ReplacedReadingRecord.interval_start >= start,
+                ReplacedReadingRecord.interval_start < end,
             )
-            .where(ReadingCorrectionRecord.meter_id == meter_id)
+            .order_by(ReplacedReadingRecord.id)
         )
     }
     return [
-        Reading(row.interval_start, row.energy_wh, previous.get(row.interval_start))
+        Reading(row.interval_start, row.energy_wh, replaced_wh.get(row.interval_start))
         for row in [*before, *in_month, *after]
     ]

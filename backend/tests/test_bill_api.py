@@ -1,3 +1,8 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
 def test_october_bill_matches_the_independent_cross_check(client):
     bill = client.get("/api/bill/2026-10").json()
 
@@ -72,10 +77,6 @@ def test_october_bill_carries_the_why_figures_and_daily_usage(client):
 
 
 def test_restart_does_not_seed_twice(tmp_path, monkeypatch):
-    from fastapi.testclient import TestClient
-
-    from app.main import app
-
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'restart.db'}")
     for _ in range(2):
         with TestClient(app) as client:
