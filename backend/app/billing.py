@@ -70,6 +70,7 @@ class DailyUsage:
 class Bill:
     period_start: datetime
     period_end: datetime
+    in_progress: bool
     lines: list[LineItem]
     total_eur: Decimal
     prices_include_vat: bool
@@ -123,6 +124,7 @@ def compute_bill(
     year: int,
     month: int,
     prices_include_vat: bool = True,
+    now: datetime | None = None,
 ) -> Bill:
     for edge in (tariff.day_start, tariff.day_end):
         if edge.minute % 15 or edge.second or edge.microsecond:
@@ -130,7 +132,9 @@ def compute_bill(
     price: dict[Rate, Decimal] = {"day": tariff.day_ct_per_kwh, "night": tariff.night_ct_per_kwh}
     readings = list(readings)
     measured = {r.interval_start: r.energy_wh for r in readings}
-    intervals = month_intervals(year, month)
+    start, end = month_bounds(year, month)
+    cutoff = end if now is None else min(end, now)
+    intervals = [t for t in month_intervals(year, month) if t + INTERVAL <= cutoff]
     in_month = set(intervals)
 
     times = sorted(measured)
@@ -168,8 +172,9 @@ def compute_bill(
         vat = Vat(VAT_RATE, lines_sum, to_cents(lines_sum * VAT_RATE))
 
     return Bill(
-        period_start=intervals[0].astimezone(BERLIN),
-        period_end=(intervals[-1] + INTERVAL).astimezone(BERLIN),
+        period_start=start.astimezone(BERLIN),
+        period_end=(intervals[-1] + INTERVAL if intervals else start).astimezone(BERLIN),
+        in_progress=cutoff < end,
         lines=lines,
         total_eur=vat.net_eur + vat.vat_eur,
         prices_include_vat=prices_include_vat,

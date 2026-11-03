@@ -79,6 +79,8 @@ export interface components {
         /** BillOut */
         BillOut: {
             period: components["schemas"]["Period"];
+            /** In Progress */
+            in_progress: boolean;
             /** Customer Name */
             customer_name: string;
             /** Meter Number */

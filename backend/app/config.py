@@ -1,4 +1,5 @@
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -11,3 +12,7 @@ def database_url() -> str:
 
 def prices_include_vat() -> bool:
     return os.environ.get("PRICES_INCLUDE_VAT", "true").lower() == "true"
+
+
+def now() -> datetime:
+    return datetime.now(UTC)

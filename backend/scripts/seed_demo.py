@@ -10,4 +10,4 @@ database_url = config.database_url()
 migrate(database_url)
 with Session(create_engine(database_url)) as session:
     seed_if_empty(session, config.REPO_DIR / "readings.csv", config.REPO_DIR / "tariff.json")
-    print(seed_demo(session))
+    print(seed_demo(session, config.now()))

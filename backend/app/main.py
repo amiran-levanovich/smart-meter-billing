@@ -130,7 +130,13 @@ def get_bill(
         raise HTTPException(409, "billing supports exactly one meter per customer")
     [meter] = customer.meters
     bill = bill_for_meter(
-        session, meter.id, customer.tariff, year, month_number, config.prices_include_vat()
+        session,
+        meter.id,
+        customer.tariff,
+        year,
+        month_number,
+        config.prices_include_vat(),
+        config.now(),
     )
     return bill_out(bill, month, customer.name, meter.meter_number)
 

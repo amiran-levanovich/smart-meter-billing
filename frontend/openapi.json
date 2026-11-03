@@ -147,6 +147,10 @@
           "period": {
             "$ref": "#/components/schemas/Period"
           },
+          "in_progress": {
+            "type": "boolean",
+            "title": "In Progress"
+          },
           "customer_name": {
             "type": "string",
             "title": "Customer Name"
@@ -217,6 +221,7 @@
         "type": "object",
         "required": [
           "period",
+          "in_progress",
           "customer_name",
           "meter_number",
           "lines",

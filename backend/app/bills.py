@@ -14,10 +14,11 @@ def bill_for_meter(
     year: int,
     month: int,
     prices_include_vat: bool,
+    now: datetime,
 ) -> Bill:
     readings = load_readings(session, meter_id, *month_bounds(year, month))
     return compute_bill(
-        readings, tariff.to_tariff(), year, month, prices_include_vat=prices_include_vat
+        readings, tariff.to_tariff(), year, month, prices_include_vat=prices_include_vat, now=now
     )
 
 

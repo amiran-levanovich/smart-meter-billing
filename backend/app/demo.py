@@ -6,12 +6,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import config
-from app.billing import BERLIN, Reading, month_intervals
+from app.billing import BERLIN, INTERVAL, Reading, month_intervals
 from app.db import MeterRecord
 from app.ingest import IngestResult, ingest_readings
 from app.seed import SEED_METER_PUBLIC_ID, read_csv
 
-DEMO_MONTHS = [(2026, 8), (2026, 9), (2026, 11), (2027, 1)]
+TASK_MONTH = (2026, 10)
+
+
+def months_back(year: int, month: int, count: int) -> list[tuple[int, int]]:
+    return [divmod(year * 12 + month - 1 - k, 12) for k in range(count, 0, -1)]
 
 
 def demo_readings(
@@ -31,13 +35,25 @@ def demo_readings(
     return readings
 
 
-def seed_demo(session: Session) -> IngestResult:
+def seed_demo(session: Session, now: datetime) -> IngestResult:
     meter = session.scalars(
         select(MeterRecord).where(MeterRecord.public_id == SEED_METER_PUBLIC_ID)
     ).one()
     october = read_csv(config.REPO_DIR / "readings.csv")
     rng = random.Random(2026)
-    readings = [r for year, month in DEMO_MONTHS for r in demo_readings(october, year, month, rng)]
+    local_now = now.astimezone(BERLIN)
+    past = [(y, m + 1) for y, m in months_back(local_now.year, local_now.month, 6)]
+    gap = past[2]
+    readings = [
+        r
+        for year, month in past
+        if (year, month) not in (TASK_MONTH, gap)
+        for r in demo_readings(october, year, month, rng)
+    ] + [
+        r
+        for r in demo_readings(october, local_now.year, local_now.month, rng)
+        if r.interval_start + INTERVAL <= now
+    ]
     result = ingest_readings(session, meter.id, readings, datetime.now(UTC))
     session.commit()
     return result

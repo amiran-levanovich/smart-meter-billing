@@ -114,10 +114,13 @@ export default function BillScreen({ bill, months, onMonthChange }: Props) {
         <p className="subline">
           Monatliche Abrechnungsinformation · Abrechnungszeitraum {formatDate(period.start)} –{' '}
           {lastDayOf(period.end)}
+          {bill.in_progress && ' · laufender Monat'}
         </p>
 
         <section className="total" aria-label="Gesamtbetrag">
-          <div className="total-label">Gesamtbetrag {formatMonth(period.start)}</div>
+          <div className="total-label">
+            {bill.in_progress ? 'Bisher im' : 'Gesamtbetrag'} {formatMonth(period.start)}
+          </div>
           <div className="total-amount">{formatEur(bill.total_eur)}</div>
           <div className="total-vat">
             inkl. {formatRate(vat.rate)} USt ({formatEur(vat.vat_eur)}) · Nettobetrag{' '}

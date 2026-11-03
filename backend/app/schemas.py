@@ -65,6 +65,7 @@ class NoticeOut(BaseModel):
 
 class BillOut(BaseModel):
     period: Period
+    in_progress: bool
     customer_name: str
     meter_number: str
     lines: list[LineItemOut]
@@ -84,6 +85,7 @@ class BillOut(BaseModel):
 def bill_out(bill: Bill, month: str, customer_name: str, meter_number: str) -> BillOut:
     return BillOut(
         period=Period(month=month, start=bill.period_start, end=bill.period_end),
+        in_progress=bill.in_progress,
         customer_name=customer_name,
         meter_number=meter_number,
         lines=[
