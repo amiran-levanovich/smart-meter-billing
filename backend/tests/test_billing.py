@@ -279,3 +279,7 @@ def test_daily_figures_split_day_and_night_per_berlin_date():
     )
     dst_day = bill.daily[24]
     assert (dst_day.date, dst_day.night_kwh) == (date(2026, 10, 25), Decimal("36.000"))
+
+
+def test_month_with_zero_consumption_has_no_night_share():
+    assert bill_for(month_readings(2026, 10)).night_share_percent == Decimal("0")
