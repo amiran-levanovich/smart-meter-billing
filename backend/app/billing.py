@@ -1,17 +1,18 @@
-"""Billing core: a month's readings + tariff in, the bill out. No DB, no HTTP."""
-
 from bisect import bisect_left
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 BERLIN = ZoneInfo("Europe/Berlin")
 INTERVAL = timedelta(minutes=15)
 CENT = Decimal("0.01")
 VAT_RATE = Decimal("0.19")  # electricity is always standard-rated in Germany
+
+Rate = Literal["day", "night"]
 
 
 @dataclass(frozen=True)
@@ -27,12 +28,12 @@ class Tariff:
 class Reading:
     interval_start: datetime  # aware UTC
     energy_wh: int
-    previous_energy_wh: int | None = None  # set when this reading replaced a different value
+    previous_energy_wh: int | None = None
 
 
 @dataclass(frozen=True)
 class LineItem:
-    kind: str  # "day" | "night" | "fee"
+    kind: Literal["day", "night", "fee"]
     quantity: Decimal  # kWh, or months for the fee
     unit_price: Decimal  # ct/kWh, or EUR for the fee
     amount_eur: Decimal
@@ -40,7 +41,7 @@ class LineItem:
 
 @dataclass(frozen=True)
 class Notice:
-    kind: str  # "dst" | "estimated" | "corrected"
+    kind: Literal["dst", "estimated", "corrected"]
     interval_start: datetime
     energy_wh: int | None = None
     previous_energy_wh: int | None = None
@@ -56,7 +57,7 @@ class Vat:
 
 @dataclass(frozen=True)
 class DailyUsage:
-    date: date  # Berlin calendar date
+    date: date
     day_kwh: Decimal
     night_kwh: Decimal
     day_eur: Decimal  # rounded per day, so days can sum to a few cents off the line items
@@ -65,7 +66,7 @@ class DailyUsage:
 
 @dataclass(frozen=True)
 class Bill:
-    period_start: datetime  # Berlin local midnight
+    period_start: datetime
     period_end: datetime
     lines: list[LineItem]
     total_eur: Decimal
@@ -77,24 +78,36 @@ class Bill:
     notices: list[Notice]
 
 
+class InvalidTariffError(ValueError):
+    pass
+
+
 class NoReadingsError(Exception):
-    """The month has no readings at all, so there is nothing to bill."""
+    pass
 
 
 def to_cents(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
 
 
+def to_kwh(wh: int) -> Decimal:
+    return Decimal(wh).scaleb(-3)
+
+
+def eur(kwh: Decimal, ct_per_kwh: Decimal) -> Decimal:
+    return to_cents(kwh * ct_per_kwh / 100)
+
+
 def month_intervals(year: int, month: int) -> list[datetime]:
-    """UTC starts of every interval in the Berlin calendar month (DST days have 92 or 100)."""
     start = datetime(year, month, 1, tzinfo=BERLIN).astimezone(UTC)
     end = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=BERLIN).astimezone(UTC)
     count = (end - start) // INTERVAL
     return [start + i * INTERVAL for i in range(count)]
 
 
-def is_day(interval_start: datetime, tariff: Tariff) -> bool:
-    return tariff.day_start <= interval_start.astimezone(BERLIN).time() < tariff.day_end
+def rate_of(interval_start: datetime, tariff: Tariff) -> Rate:
+    in_window = tariff.day_start <= interval_start.astimezone(BERLIN).time() < tariff.day_end
+    return "day" if in_window else "night"
 
 
 def compute_bill(
@@ -105,37 +118,36 @@ def compute_bill(
     prices_include_vat: bool = True,
 ) -> Bill:
     for edge in (tariff.day_start, tariff.day_end):
-        assert edge.minute % 15 == 0 and edge.second == 0, "day window must sit on 15-min marks"
+        if edge.minute % 15 or edge.second or edge.microsecond:
+            raise InvalidTariffError(f"day window edge {edge} is not on a 15-minute mark")
+    price: dict[Rate, Decimal] = {"day": tariff.day_ct_per_kwh, "night": tariff.night_ct_per_kwh}
     readings = list(readings)
     measured = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
-    if not measured.keys() & set(intervals):
+    in_month = set(intervals)
+    if not measured.keys() & in_month:
         raise NoReadingsError(f"no readings for {year}-{month:02d}")
 
     times = sorted(measured)
     notices = clock_changes(intervals) + [
         Notice("corrected", r.interval_start, r.energy_wh, r.previous_energy_wh)
         for r in readings
-        if r.previous_energy_wh is not None and intervals[0] <= r.interval_start <= intervals[-1]
+        if r.previous_energy_wh is not None and r.interval_start in in_month
     ]
-    per_day: defaultdict[date, dict[bool, int]] = defaultdict(lambda: {True: 0, False: 0})
+    per_date: defaultdict[date, dict[Rate, int]] = defaultdict(lambda: {"day": 0, "night": 0})
     for t in intervals:
+        rate = rate_of(t, tariff)
         wh = measured.get(t)
         if wh is None:
             wh = estimate(t, times, measured)
-            amount = to_cents(cost_ct(wh, t, tariff) / 100)
-            notices.append(Notice("estimated", t, wh, amount_eur=amount))
-        per_day[t.astimezone(BERLIN).date()][is_day(t, tariff)] += wh
-    day_wh = sum(wh[True] for wh in per_day.values())
-    night_wh = sum(wh[False] for wh in per_day.values())
-
-    def energy_line(kind: str, wh: int, ct_per_kwh: Decimal) -> LineItem:
-        kwh = to_kwh(wh)
-        return LineItem(kind, kwh, ct_per_kwh, to_cents(kwh * ct_per_kwh / 100))
+            notices.append(Notice("estimated", t, wh, amount_eur=eur(to_kwh(wh), price[rate])))
+        per_date[t.astimezone(BERLIN).date()][rate] += wh
+    day_wh = sum(wh["day"] for wh in per_date.values())
+    night_wh = sum(wh["night"] for wh in per_date.values())
 
     lines = [
-        energy_line("day", day_wh, tariff.day_ct_per_kwh),
-        energy_line("night", night_wh, tariff.night_ct_per_kwh),
+        LineItem("day", to_kwh(day_wh), price["day"], eur(to_kwh(day_wh), price["day"])),
+        LineItem("night", to_kwh(night_wh), price["night"], eur(to_kwh(night_wh), price["night"])),
         LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
     ]
     lines_sum = sum((item.amount_eur for item in lines), Decimal(0))
@@ -145,8 +157,6 @@ def compute_bill(
     else:
         vat = Vat(VAT_RATE, lines_sum, to_cents(lines_sum * VAT_RATE))
 
-    night_kwh = to_kwh(night_wh)
-    price_gap_ct = tariff.day_ct_per_kwh - tariff.night_ct_per_kwh
     return Bill(
         period_start=intervals[0].astimezone(BERLIN),
         period_end=(intervals[-1] + INTERVAL).astimezone(BERLIN),
@@ -155,16 +165,16 @@ def compute_bill(
         prices_include_vat=prices_include_vat,
         vat=vat,
         night_share_percent=night_share_percent(day_wh, night_wh),
-        night_saving_eur=to_cents(night_kwh * price_gap_ct / 100),
+        night_saving_eur=eur(to_kwh(night_wh), price["day"] - price["night"]),
         daily=[
             DailyUsage(
-                day,
-                to_kwh(wh[True]),
-                to_kwh(wh[False]),
-                to_cents(to_kwh(wh[True]) * tariff.day_ct_per_kwh / 100),
-                to_cents(to_kwh(wh[False]) * tariff.night_ct_per_kwh / 100),
+                local_date,
+                to_kwh(wh["day"]),
+                to_kwh(wh["night"]),
+                eur(to_kwh(wh["day"]), price["day"]),
+                eur(to_kwh(wh["night"]), price["night"]),
             )
-            for day, wh in per_day.items()
+            for local_date, wh in per_date.items()
         ],
         notices=sorted(notices, key=lambda n: n.interval_start),
     )
@@ -177,25 +187,11 @@ def night_share_percent(day_wh: int, night_wh: int) -> Decimal:
     return share.quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
-def to_kwh(wh: int) -> Decimal:
-    return Decimal(wh).scaleb(-3)  # exact to 3 places
-
-
-def price_ct(interval_start: datetime, tariff: Tariff) -> Decimal:
-    return tariff.day_ct_per_kwh if is_day(interval_start, tariff) else tariff.night_ct_per_kwh
-
-
-def cost_ct(wh: int, interval_start: datetime, tariff: Tariff) -> Decimal:
-    return to_kwh(wh) * price_ct(interval_start, tariff)
-
-
 def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) -> int:
-    """Linear interpolation between the nearest real readings around t, to whole Wh.
-    With a reading on one side only, copy it. `times` is sorted(measured)."""
     i = bisect_left(times, t)
     before = times[i - 1] if i > 0 else None
     after = times[i] if i < len(times) else None
-    if before is None or after is None:
+    if before is None or after is None:  # month edge with a real reading on one side only
         return measured[before or after]
     share = Decimal((t - before) // INTERVAL) / Decimal((after - before) // INTERVAL)
     value = measured[before] + (measured[after] - measured[before]) * share

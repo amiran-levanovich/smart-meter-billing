@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.billing import NoReadingsError, Reading, Tariff, compute_bill
+from app.billing import InvalidTariffError, NoReadingsError, Reading, Tariff, compute_bill
 
 BERLIN = ZoneInfo("Europe/Berlin")
 TARIFF = Tariff(
@@ -21,7 +21,6 @@ TARIFF = Tariff(
 
 
 def month_readings(year: int, month: int, energy_wh: int = 0) -> dict[datetime, int]:
-    """Every interval of the Berlin calendar month, keyed by UTC start."""
     start = datetime(year, month, 1, tzinfo=BERLIN).astimezone(UTC)
     next_month = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=BERLIN).astimezone(UTC)
     readings = {}
@@ -53,7 +52,6 @@ def test_interval_is_priced_by_its_start_in_berlin_local_time():
 
     bill = bill_for(readings)
 
-    # 06:00 and 21:45 are day; 05:45 and 22:00 are night
     assert line(bill, "day").quantity == Decimal("2.000")
     assert line(bill, "night").quantity == Decimal("2.000")
 
@@ -268,7 +266,8 @@ def test_daily_figures_split_day_and_night_per_berlin_date():
     bill = bill_for(month_readings(2026, 10, energy_wh=1000))
 
     assert len(bill.daily) == 31
-    first = bill.daily[0]
+    by_date = {d.date: d for d in bill.daily}
+    first = by_date[date(2026, 10, 1)]
     # 64 kWh x 31.847 ct = 20.38208; 32 kWh x 19.392 ct = 6.20544
     assert (first.date, first.day_kwh, first.night_kwh, first.day_eur, first.night_eur) == (
         date(2026, 10, 1),
@@ -277,9 +276,31 @@ def test_daily_figures_split_day_and_night_per_berlin_date():
         Decimal("20.38"),
         Decimal("6.21"),
     )
-    dst_day = bill.daily[24]
-    assert (dst_day.date, dst_day.night_kwh) == (date(2026, 10, 25), Decimal("36.000"))
+    assert by_date[date(2026, 10, 25)].night_kwh == Decimal("36.000")
 
 
 def test_month_with_zero_consumption_has_no_night_share():
     assert bill_for(month_readings(2026, 10)).night_share_percent == Decimal("0")
+
+
+def test_december_bill_ends_at_new_year_midnight():
+    bill = bill_for(month_readings(2026, 12, energy_wh=1000), year=2026, month=12)
+
+    assert bill.period_end == datetime.fromisoformat("2027-01-01T00:00:00+01:00")
+    # 31 days x 64 day intervals, 31 x 32 night intervals
+    assert line(bill, "day").quantity == Decimal("1984.000")
+    assert line(bill, "night").quantity == Decimal("992.000")
+
+
+def test_correction_outside_the_month_is_not_a_notice():
+    readings = [Reading(t, 0) for t in month_readings(2026, 10)]
+    readings.append(Reading(berlin(2026, 9, 30, 23, 45), 500, previous_energy_wh=400))
+
+    bill = compute_bill(readings, TARIFF, 2026, 10)
+
+    assert [n for n in bill.notices if n.kind == "corrected"] == []
+
+
+def test_day_window_off_the_15_minute_grid_is_rejected():
+    with pytest.raises(InvalidTariffError):
+        compute_bill([], replace(TARIFF, day_start=time(6, 10)), 2026, 10)
