@@ -1,15 +1,15 @@
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated
 
 from alembic import command
 from alembic.config import Config
-from fastapi import Depends, FastAPI, HTTPException, Path, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Path, Request
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app import config
 from app.billing import NoReadingsError
@@ -40,19 +40,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine.dispose()
 
 
-MAX_READINGS = 31 * 24 * 4
+MAX_READINGS = 31 * 96 + 4
 MAX_BODY_BYTES = 1_000_000
 
+
+class BodySizeLimit:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            received += len(message.get("body", b""))
+            if received > MAX_BODY_BYTES:
+                raise HTTPException(413, f"request body exceeds {MAX_BODY_BYTES} bytes")
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+
 app = FastAPI(title="WattWunder Billing", lifespan=lifespan)
-
-
-@app.middleware("http")
-async def limit_body_size(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
-    if int(request.headers.get("content-length", 0)) > MAX_BODY_BYTES:
-        return JSONResponse({"detail": "request body too large"}, status_code=413)
-    return await call_next(request)
+app.add_middleware(BodySizeLimit)
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -68,6 +79,13 @@ def current_customer(session: SessionDep) -> CustomerRecord:
     if customer is None:
         raise HTTPException(404, "no customer")
     return customer
+
+
+def meter_by_public_id(public_id: uuid.UUID, session: SessionDep) -> MeterRecord:
+    meter = session.scalar(select(MeterRecord).where(MeterRecord.public_id == public_id))
+    if meter is None:
+        raise HTTPException(404, "unknown meter")
+    return meter
 
 
 @app.get("/api/health")
@@ -94,13 +112,12 @@ def get_bill(
 
 @app.post("/api/meters/{public_id}/readings")
 def post_readings(
-    public_id: uuid.UUID, readings: list[ReadingIn], session: SessionDep
+    readings: list[ReadingIn],
+    session: SessionDep,
+    meter: Annotated[MeterRecord, Depends(meter_by_public_id)],
 ) -> IngestOut:
     if len(readings) > MAX_READINGS:
         raise HTTPException(413, f"at most {MAX_READINGS} readings per request")
-    meter = session.scalar(select(MeterRecord).where(MeterRecord.public_id == public_id))
-    if meter is None:
-        raise HTTPException(404, "unknown meter")
     result = ingest_readings(
         session, meter.id, (r.to_reading() for r in readings), datetime.now(UTC)
     )

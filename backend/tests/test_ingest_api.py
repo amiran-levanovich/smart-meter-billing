@@ -1,5 +1,6 @@
 import pytest
 
+from app.main import MAX_READINGS
 from app.seed import SEED_METER_PUBLIC_ID
 
 URL = f"/api/meters/{SEED_METER_PUBLIC_ID}/readings"
@@ -37,8 +38,15 @@ def test_invalid_reading_is_rejected(client, reading):
     assert response.status_code == 422
 
 
-def test_more_than_a_month_of_readings_is_too_large(client):
-    readings = [{"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": 1}] * 2977
+def test_a_full_month_with_the_autumn_clock_change_fits_in_one_batch(client):
+    # 31 days x 96 intervals + 4 for the repeated hour on 25 Oct
+    readings = [{"timestamp": "2026-10-08T10:15:00+02:00", "energy_wh": 3200}] * 2980
+
+    assert client.post(URL, json=readings).status_code == 200
+
+
+def test_more_readings_than_a_month_holds_are_too_large(client):
+    readings = [{"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": 1}] * (MAX_READINGS + 1)
 
     assert client.post(URL, json=readings).status_code == 413
 
@@ -47,6 +55,18 @@ def test_oversized_body_is_rejected_before_parsing(client):
     body = b"[" + b" " * 2_000_000 + b"]"
 
     response = client.post(URL, content=body, headers={"content-type": "application/json"})
+
+    assert response.status_code == 413
+
+
+def test_oversized_chunked_body_without_length_is_rejected(client):
+    def chunks():
+        yield b"["
+        for _ in range(2_000):
+            yield b" " * 1_000
+        yield b"]"
+
+    response = client.post(URL, content=chunks(), headers={"content-type": "application/json"})
 
     assert response.status_code == 413
 
