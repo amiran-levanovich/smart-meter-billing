@@ -1,9 +1,10 @@
 """Billing core: a month's readings + tariff in, the bill out. No DB, no HTTP."""
 
 from bisect import bisect_left
+from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
@@ -54,11 +55,25 @@ class Vat:
 
 
 @dataclass(frozen=True)
+class DailyUsage:
+    date: date  # Berlin calendar date
+    day_kwh: Decimal
+    night_kwh: Decimal
+    day_eur: Decimal  # rounded per day, so days can sum to a few cents off the line items
+    night_eur: Decimal
+
+
+@dataclass(frozen=True)
 class Bill:
+    period_start: datetime  # Berlin local midnight
+    period_end: datetime
     lines: list[LineItem]
     total_eur: Decimal
     prices_include_vat: bool
     vat: Vat
+    night_share_percent: Decimal
+    night_saving_eur: Decimal
+    daily: list[DailyUsage]
     notices: list[Notice]
 
 
@@ -89,6 +104,8 @@ def compute_bill(
     month: int,
     prices_include_vat: bool = True,
 ) -> Bill:
+    for edge in (tariff.day_start, tariff.day_end):
+        assert edge.minute % 15 == 0 and edge.second == 0, "day window must sit on 15-min marks"
     readings = list(readings)
     measured = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
@@ -101,17 +118,16 @@ def compute_bill(
         for r in readings
         if r.previous_energy_wh is not None and intervals[0] <= r.interval_start <= intervals[-1]
     ]
-    day_wh = night_wh = 0
+    per_day: defaultdict[date, dict[bool, int]] = defaultdict(lambda: {True: 0, False: 0})
     for t in intervals:
         wh = measured.get(t)
         if wh is None:
             wh = estimate(t, times, measured)
             amount = to_cents(cost_ct(wh, t, tariff) / 100)
             notices.append(Notice("estimated", t, wh, amount_eur=amount))
-        if is_day(t, tariff):
-            day_wh += wh
-        else:
-            night_wh += wh
+        per_day[t.astimezone(BERLIN).date()][is_day(t, tariff)] += wh
+    day_wh = sum(wh[True] for wh in per_day.values())
+    night_wh = sum(wh[False] for wh in per_day.values())
 
     def energy_line(kind: str, wh: int, ct_per_kwh: Decimal) -> LineItem:
         kwh = to_kwh(wh)
@@ -129,13 +145,36 @@ def compute_bill(
     else:
         vat = Vat(VAT_RATE, lines_sum, to_cents(lines_sum * VAT_RATE))
 
+    night_kwh = to_kwh(night_wh)
+    price_gap_ct = tariff.day_ct_per_kwh - tariff.night_ct_per_kwh
     return Bill(
+        period_start=intervals[0].astimezone(BERLIN),
+        period_end=(intervals[-1] + INTERVAL).astimezone(BERLIN),
         lines=lines,
         total_eur=vat.net_eur + vat.vat_eur,
         prices_include_vat=prices_include_vat,
         vat=vat,
+        night_share_percent=night_share_percent(day_wh, night_wh),
+        night_saving_eur=to_cents(night_kwh * price_gap_ct / 100),
+        daily=[
+            DailyUsage(
+                day,
+                to_kwh(wh[True]),
+                to_kwh(wh[False]),
+                to_cents(to_kwh(wh[True]) * tariff.day_ct_per_kwh / 100),
+                to_cents(to_kwh(wh[False]) * tariff.night_ct_per_kwh / 100),
+            )
+            for day, wh in per_day.items()
+        ],
         notices=sorted(notices, key=lambda n: n.interval_start),
     )
+
+
+def night_share_percent(day_wh: int, night_wh: int) -> Decimal:
+    if day_wh + night_wh == 0:
+        return Decimal(0)
+    share = Decimal(100) * night_wh / (day_wh + night_wh)
+    return share.quantize(Decimal(1), rounding=ROUND_HALF_UP)
 
 
 def to_kwh(wh: int) -> Decimal:
@@ -158,7 +197,7 @@ def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) 
     after = times[i] if i < len(times) else None
     if before is None or after is None:
         return measured[before or after]
-    share = Decimal((t - before) / INTERVAL) / Decimal((after - before) / INTERVAL)
+    share = Decimal((t - before) // INTERVAL) / Decimal((after - before) // INTERVAL)
     value = measured[before] + (measured[after] - measured[before]) * share
     return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
