@@ -175,7 +175,7 @@ export default function BillScreen({ bill, months, onMonthChange }: Props) {
               <strong>{formatWholeEur(bill.night_saving_eur)}</strong> weniger gekostet.
             </p>
 
-            <DailyChart daily={bill.daily} windows={windows(bill)} />
+            <DailyChart daily={bill.daily} month={period.month} windows={windows(bill)} />
           </>
         ) : (
           <p className="why">

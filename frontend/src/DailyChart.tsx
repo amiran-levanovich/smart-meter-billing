@@ -22,29 +22,36 @@ function usePhone() {
 }
 
 function DayDetail({ active, payload }: TooltipContentProps) {
-  if (!active || !payload?.length) return null
-  const entry = payload[0].payload as Daily
+  const entry = payload?.[0]?.payload as Partial<Daily> | undefined
+  if (!active || !entry?.date) return null
   return (
     <div className="chart-tooltip">
-      {formatDayAndMonth(entry.date)} · Tag {formatKwhOneDecimal(entry.day_kwh)} · {formatEur(entry.day_eur)}{' '}
-      · Nacht {formatKwhOneDecimal(entry.night_kwh)} · {formatEur(entry.night_eur)}
+      {formatDayAndMonth(entry.date)} · Tag {formatKwhOneDecimal(entry.day_kwh!)} ·{' '}
+      {formatEur(entry.day_eur!)} · Nacht {formatKwhOneDecimal(entry.night_kwh!)} ·{' '}
+      {formatEur(entry.night_eur!)}
     </div>
   )
 }
 
-type Props = { daily: Daily[]; windows: { day: string; night: string } }
+type Props = { daily: Daily[]; month: string; windows: { day: string; night: string } }
 
-export default function DailyChart({ daily, windows }: Props) {
+export default function DailyChart({ daily, month, windows }: Props) {
   const [unit, setUnit] = useState<Unit>('kWh')
   const isPhone = usePhone()
   const [dayKey, nightKey] =
     unit === 'kWh' ? (['day_kwh', 'night_kwh'] as const) : (['day_eur', 'night_eur'] as const)
-  const data = daily.map((entry) => ({
-    ...entry,
-    dayOfMonth: Number(entry.date.slice(8)),
-    day: Number(entry[dayKey]),
-    night: Number(entry[nightKey]),
-  }))
+  const [year, monthNumber] = month.split('-').map(Number)
+  const daysInMonth = new Date(year, monthNumber, 0).getDate()
+  const byDay = new Map(daily.map((entry) => [Number(entry.date.slice(8)), entry]))
+  const data = Array.from({ length: daysInMonth }, (_, i) => {
+    const entry = byDay.get(i + 1)
+    return {
+      ...entry,
+      dayOfMonth: i + 1,
+      day: entry && Number(entry[dayKey]),
+      night: entry && Number(entry[nightKey]),
+    }
+  })
 
   return (
     <section className="chart" aria-labelledby="chart-heading">
