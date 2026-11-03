@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 BERLIN = ZoneInfo("Europe/Berlin")
 INTERVAL = timedelta(minutes=15)
 CENT = Decimal("0.01")
-VAT_RATE = Decimal("0.19")  # electricity is always standard-rated in Germany
+VAT_RATE = Decimal("0.19")
 
 Rate = Literal["day", "night"]
 
@@ -26,7 +26,7 @@ class Tariff:
 
 @dataclass(frozen=True)
 class Reading:
-    interval_start: datetime  # aware UTC
+    interval_start: datetime
     energy_wh: int
     previous_energy_wh: int | None = None
 
@@ -34,8 +34,8 @@ class Reading:
 @dataclass(frozen=True)
 class LineItem:
     kind: Literal["day", "night", "fee"]
-    quantity: Decimal  # kWh, or months for the fee
-    unit_price: Decimal  # ct/kWh, or EUR for the fee
+    quantity: Decimal
+    unit_price: Decimal
     amount_eur: Decimal
 
 
@@ -60,7 +60,7 @@ class DailyUsage:
     date: date
     day_kwh: Decimal
     night_kwh: Decimal
-    day_eur: Decimal  # rounded per day, so days can sum to a few cents off the line items
+    day_eur: Decimal
     night_eur: Decimal
 
 
@@ -191,7 +191,7 @@ def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) 
     i = bisect_left(times, t)
     before = times[i - 1] if i > 0 else None
     after = times[i] if i < len(times) else None
-    if before is None or after is None:  # month edge with a real reading on one side only
+    if before is None or after is None:
         return measured[before or after]
     share = Decimal((t - before) // INTERVAL) / Decimal((after - before) // INTERVAL)
     value = measured[before] + (measured[after] - measured[before]) * share

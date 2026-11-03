@@ -1,6 +1,3 @@
-"""Trap tests for the billing core. Expected values are worked out by hand from the
-task's tariff (day 31.847 ct/kWh 06:00-22:00, night 19.392 ct/kWh, fee 12.90 EUR)."""
-
 from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
