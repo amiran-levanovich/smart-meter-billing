@@ -1,6 +1,7 @@
 """Trap tests for the billing core. Expected values are worked out by hand from the
 task's tariff (day 31.847 ct/kWh 06:00-22:00, night 19.392 ct/kWh, fee 12.90 EUR)."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -89,3 +90,51 @@ def test_clock_change_is_a_notice_at_the_first_interval_after_it():
     assert [(n.kind, n.interval_start) for n in bill.notices] == [
         ("dst", datetime.fromisoformat("2026-10-25T02:00:00+01:00"))
     ]
+
+
+def test_each_line_is_rounded_to_cents_and_the_total_is_their_sum():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000))
+
+    # 1984 kWh x 31.847 ct = 631.84448; 996 kWh x 19.392 ct = 193.14432
+    assert [item.amount_eur for item in bill.lines] == [
+        Decimal("631.84"),
+        Decimal("193.14"),
+        Decimal("12.90"),
+    ]
+    # rounding the unrounded sum once would give 837.89
+    assert bill.total_eur == Decimal("837.88")
+
+
+def test_half_a_cent_rounds_up():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 1, 12, 0)] = 50  # 0.05 kWh x 10 ct = 0.5 ct
+
+    bill = compute_bill(
+        [Reading(t, wh) for t, wh in readings.items()],
+        replace(TARIFF, day_ct_per_kwh=Decimal("10")),
+        2026,
+        10,
+    )
+
+    assert line(bill, "day").amount_eur == Decimal("0.01")
+
+
+def test_gross_prices_show_the_included_vat():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000))
+
+    assert bill.prices_include_vat is True
+    assert bill.total_eur == Decimal("837.88")
+    # 837.88 / 1.19 = 704.0999...
+    assert (bill.vat.rate, bill.vat.net_eur, bill.vat.vat_eur) == (
+        Decimal("0.19"),
+        Decimal("704.10"),
+        Decimal("133.78"),
+    )
+
+
+def test_net_prices_add_vat_on_top():
+    bill = bill_for(month_readings(2026, 10, energy_wh=1000), prices_include_vat=False)
+
+    # 837.88 x 0.19 = 159.1972
+    assert (bill.vat.net_eur, bill.vat.vat_eur) == (Decimal("837.88"), Decimal("159.20"))
+    assert bill.total_eur == Decimal("997.08")
