@@ -1,5 +1,6 @@
 """Billing core: a month's readings + tariff in, the bill out. No DB, no HTTP."""
 
+from bisect import bisect_left
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
@@ -60,6 +61,10 @@ class Bill:
     notices: list[Notice]
 
 
+class NoReadingsError(Exception):
+    """The month has no readings at all, so there is nothing to bill."""
+
+
 def to_cents(value: Decimal) -> Decimal:
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
 
@@ -83,17 +88,27 @@ def compute_bill(
     month: int,
     prices_include_vat: bool = True,
 ) -> Bill:
-    energy = {r.interval_start: r.energy_wh for r in readings}
+    measured = {r.interval_start: r.energy_wh for r in readings}
     intervals = month_intervals(year, month)
+    if not measured.keys() & set(intervals):
+        raise NoReadingsError(f"no readings for {year}-{month:02d}")
+
+    times = sorted(measured)
+    notices = []
     day_wh = night_wh = 0
     for t in intervals:
+        wh = measured.get(t)
+        if wh is None:
+            wh = estimate(t, times, measured)
+            amount = to_cents(cost_ct(wh, t, tariff) / 100)
+            notices.append(Notice("estimated", t, wh, amount_eur=amount))
         if is_day(t, tariff):
-            day_wh += energy[t]
+            day_wh += wh
         else:
-            night_wh += energy[t]
+            night_wh += wh
 
     def energy_line(kind: str, wh: int, ct_per_kwh: Decimal) -> LineItem:
-        kwh = Decimal(wh).scaleb(-3)  # Wh to kWh, exact to 3 places
+        kwh = to_kwh(wh)
         return LineItem(kind, kwh, ct_per_kwh, to_cents(kwh * ct_per_kwh / 100))
 
     lines = [
@@ -113,8 +128,33 @@ def compute_bill(
         total_eur=vat.net_eur + vat.vat_eur,
         prices_include_vat=prices_include_vat,
         vat=vat,
-        notices=clock_changes(intervals),
+        notices=clock_changes(intervals) + notices,
     )
+
+
+def to_kwh(wh: int) -> Decimal:
+    return Decimal(wh).scaleb(-3)  # exact to 3 places
+
+
+def price_ct(interval_start: datetime, tariff: Tariff) -> Decimal:
+    return tariff.day_ct_per_kwh if is_day(interval_start, tariff) else tariff.night_ct_per_kwh
+
+
+def cost_ct(wh: int, interval_start: datetime, tariff: Tariff) -> Decimal:
+    return to_kwh(wh) * price_ct(interval_start, tariff)
+
+
+def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) -> int:
+    """Linear interpolation between the nearest real readings around t, to whole Wh.
+    With a reading on one side only, copy it. `times` is sorted(measured)."""
+    i = bisect_left(times, t)
+    before = times[i - 1] if i > 0 else None
+    after = times[i] if i < len(times) else None
+    if before is None or after is None:
+        return measured[before or after]
+    share = Decimal((t - before) / INTERVAL) / Decimal((after - before) / INTERVAL)
+    value = measured[before] + (measured[after] - measured[before]) * share
+    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def clock_changes(intervals: list[datetime]) -> list[Notice]:
