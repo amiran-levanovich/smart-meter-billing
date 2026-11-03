@@ -180,6 +180,29 @@ def test_gap_run_is_interpolated_linearly_between_real_readings():
     ]
 
 
+def test_gap_of_one_hour_is_still_interpolated():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 2, 9, 0)] = 500
+    readings[berlin(2026, 10, 2, 10, 15)] = 1000
+    for minute in (15, 30, 45, 60):
+        del readings[berlin(2026, 10, 2, 9, 0) + timedelta(minutes=minute)]
+
+    assert [wh for _, wh in estimates(bill_for(readings))] == [600, 700, 800, 900]
+
+
+def test_gap_longer_than_one_hour_is_not_billed():
+    readings = month_readings(2026, 10)
+    readings[berlin(2026, 10, 2, 9, 0)] = 500
+    readings[berlin(2026, 10, 2, 10, 30)] = 1000
+    for minute in (15, 30, 45, 60, 75):
+        del readings[berlin(2026, 10, 2, 9, 0) + timedelta(minutes=minute)]
+
+    bill = bill_for(readings)
+
+    assert estimates(bill) == []
+    assert line(bill, "day").quantity == Decimal("1.500")
+
+
 def test_gap_at_month_start_uses_the_reading_before_the_month():
     readings = month_readings(2026, 10)
     del readings[berlin(2026, 10, 1, 0, 0)]

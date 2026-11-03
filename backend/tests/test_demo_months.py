@@ -21,6 +21,8 @@ def test_demo_months_are_fully_measured_and_leave_december_empty(client):
         bill = client.get(f"/api/bill/{year}-{month:02d}").json()
         assert [n for n in bill["notices"] if n["kind"] == "estimated"] == []
         assert bill["lines"][0]["quantity"] != "0.000"
+    december = client.get("/api/bill/2026-12").json()
+    assert (december["total_eur"], december["notices"]) == ("12.90", [])
     assert client.get("/api/months/latest").json() == {"month": "2027-01"}
     assert client.get("/api/bill/2026-10").json()["total_eur"] == "2295.99"
 
