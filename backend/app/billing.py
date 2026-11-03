@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 BERLIN = ZoneInfo("Europe/Berlin")
 INTERVAL = timedelta(minutes=15)
+MAX_ESTIMATED_GAP = 4
 CENT = Decimal("0.01")
 VAT_RATE = Decimal("0.19")
 
@@ -193,7 +194,7 @@ def estimate(t: datetime, times: list[datetime], measured: dict[datetime, int]) 
     i = bisect_left(times, t)
     before = times[i - 1] if i > 0 else None
     after = times[i] if i < len(times) else None
-    if before is None or after is None:
+    if before is None or after is None or after - before > (MAX_ESTIMATED_GAP + 1) * INTERVAL:
         return None
     share = Decimal((t - before) // INTERVAL) / Decimal((after - before) // INTERVAL)
     value = measured[before] + (measured[after] - measured[before]) * share
