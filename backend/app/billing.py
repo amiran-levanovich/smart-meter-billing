@@ -118,32 +118,19 @@ def rate_of(interval_start: datetime, tariff: Tariff) -> Rate:
     return "day" if in_window else "night"
 
 
-def compute_bill(
-    readings: Iterable[Reading],
-    tariff: Tariff,
-    year: int,
-    month: int,
-    prices_include_vat: bool = True,
-    now: datetime | None = None,
-) -> Bill:
+def check_day_window(tariff: Tariff) -> None:
     for edge in (tariff.day_start, tariff.day_end):
         if edge.minute % 15 or edge.second or edge.microsecond:
             raise InvalidTariffError(f"day window edge {edge} is not on a 15-minute mark")
-    price: dict[Rate, Decimal] = {"day": tariff.day_ct_per_kwh, "night": tariff.night_ct_per_kwh}
-    readings = list(readings)
-    measured = {r.interval_start: r.energy_wh for r in readings}
-    start, end = month_bounds(year, month)
-    cutoff = end if now is None else min(end, now)
-    intervals = [t for t in month_intervals(year, month) if t + INTERVAL <= cutoff]
-    in_month = set(intervals)
 
+
+def usage_by_date(
+    intervals: list[datetime], measured: dict[datetime, int], tariff: Tariff
+) -> tuple[dict[date, dict[Rate, int]], list[Notice], int]:
+    price: dict[Rate, Decimal] = {"day": tariff.day_ct_per_kwh, "night": tariff.night_ct_per_kwh}
     times = sorted(measured)
-    notices = clock_changes(intervals) + [
-        Notice("corrected", r.interval_start, r.energy_wh, r.previous_energy_wh)
-        for r in readings
-        if r.previous_energy_wh is not None and r.interval_start in in_month
-    ]
     per_date: defaultdict[date, dict[Rate, int]] = defaultdict(lambda: {"day": 0, "night": 0})
+    estimates = []
     unbilled = 0
     for t in intervals:
         rate = rate_of(t, tariff)
@@ -154,22 +141,49 @@ def compute_bill(
             if wh is None:
                 unbilled += 1
                 continue
-            notices.append(Notice("estimated", t, wh, amount_eur=eur(to_kwh(wh), price[rate])))
+            estimates.append(Notice("estimated", t, wh, amount_eur=eur(to_kwh(wh), price[rate])))
         totals[rate] += wh
+    return per_date, estimates, unbilled
+
+
+def vat_of(total: Decimal, prices_include_vat: bool) -> Vat:
+    if prices_include_vat:
+        net = to_cents(total / (1 + VAT_RATE))
+        return Vat(VAT_RATE, net, total - net)
+    return Vat(VAT_RATE, total, to_cents(total * VAT_RATE))
+
+
+def compute_bill(
+    readings: Iterable[Reading],
+    tariff: Tariff,
+    year: int,
+    month: int,
+    prices_include_vat: bool = True,
+    now: datetime | None = None,
+) -> Bill:
+    check_day_window(tariff)
+    price: dict[Rate, Decimal] = {"day": tariff.day_ct_per_kwh, "night": tariff.night_ct_per_kwh}
+    readings = list(readings)
+    measured = {r.interval_start: r.energy_wh for r in readings}
+    start, end = month_bounds(year, month)
+    cutoff = end if now is None else min(end, now)
+    intervals = [t for t in month_intervals(year, month) if t + INTERVAL <= cutoff]
+    in_month = set(intervals)
+
+    per_date, estimates, unbilled = usage_by_date(intervals, measured, tariff)
+    corrections = [
+        Notice("corrected", r.interval_start, r.energy_wh, r.previous_energy_wh)
+        for r in readings
+        if r.previous_energy_wh is not None and r.interval_start in in_month
+    ]
     day_wh = sum(wh["day"] for wh in per_date.values())
     night_wh = sum(wh["night"] for wh in per_date.values())
-
     lines = [
         LineItem("day", to_kwh(day_wh), price["day"], eur(to_kwh(day_wh), price["day"])),
         LineItem("night", to_kwh(night_wh), price["night"], eur(to_kwh(night_wh), price["night"])),
         LineItem("fee", Decimal(1), tariff.monthly_fee_eur, tariff.monthly_fee_eur),
     ]
-    lines_sum = sum((item.amount_eur for item in lines), Decimal(0))
-    if prices_include_vat:
-        net = to_cents(lines_sum / (1 + VAT_RATE))
-        vat = Vat(VAT_RATE, net, lines_sum - net)
-    else:
-        vat = Vat(VAT_RATE, lines_sum, to_cents(lines_sum * VAT_RATE))
+    vat = vat_of(sum((item.amount_eur for item in lines), Decimal(0)), prices_include_vat)
 
     return Bill(
         period_start=start.astimezone(BERLIN),
@@ -191,7 +205,9 @@ def compute_bill(
             )
             for local_date, wh in per_date.items()
         ],
-        notices=sorted(notices, key=lambda n: n.interval_start),
+        notices=sorted(
+            clock_changes(intervals) + corrections + estimates, key=lambda n: n.interval_start
+        ),
         measured_intervals=len(measured.keys() & in_month),
         unbilled_intervals=unbilled,
         day_start=tariff.day_start,
