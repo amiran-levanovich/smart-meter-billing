@@ -29,8 +29,9 @@ def test_unknown_meter_is_not_found(client):
         {"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": -1},
         {"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": 1.5},
         {"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": "100"},
+        {"timestamp": "2026-10-02T10:00:00+02:00", "energy_wh": 10**20},
     ],
-    ids=["naive", "not-15-minutes", "seconds", "negative", "fraction", "string"],
+    ids=["naive", "not-15-minutes", "seconds", "negative", "fraction", "string", "absurd"],
 )
 def test_invalid_reading_is_rejected(client, reading):
     response = client.post(URL, json=[reading])

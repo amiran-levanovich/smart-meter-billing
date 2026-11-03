@@ -1,5 +1,9 @@
-from fastapi.testclient import TestClient
+import uuid
 
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.db import CustomerRecord, MeterRecord
 from app.main import app
 
 
@@ -59,8 +63,27 @@ def test_october_bill_explains_the_three_data_traps(client):
     ]
 
 
-def test_month_without_readings_is_not_found(client):
-    assert client.get("/api/bill/2026-11").status_code == 404
+def test_month_without_readings_bills_only_the_monthly_fee(client):
+    bill = client.get("/api/bill/2026-11").json()
+
+    assert [(line["kind"], line["amount_eur"]) for line in bill["lines"]] == [
+        ("day", "0.00"),
+        ("night", "0.00"),
+        ("fee", "12.90"),
+    ]
+    assert bill["total_eur"] == "12.90"
+    assert bill["notices"] == []
+
+
+def test_customer_with_a_second_meter_gets_a_clear_error(client):
+    with client.app.state.sessions() as session:
+        customer = session.scalar(select(CustomerRecord))
+        customer.meters.append(MeterRecord(public_id=uuid.uuid4(), meter_number="1EBZ0100999999"))
+        session.commit()
+
+    response = client.get("/api/bill/2026-10")
+
+    assert response.status_code == 409
 
 
 def test_malformed_month_is_rejected(client):

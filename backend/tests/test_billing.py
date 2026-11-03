@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.billing import InvalidTariffError, NoReadingsError, Reading, Tariff, compute_bill
+from app.billing import InvalidTariffError, Reading, Tariff, compute_bill
 
 BERLIN = ZoneInfo("Europe/Berlin")
 TARIFF = Tariff(
@@ -184,7 +184,7 @@ def test_gap_at_month_start_uses_the_reading_before_the_month():
     readings = month_readings(2026, 10)
     del readings[berlin(2026, 10, 1, 0, 0)]
     readings[berlin(2026, 10, 1, 0, 15)] = 600
-    readings[berlin(2026, 9, 30, 23, 45)] = 400  # outside the month, not billed
+    readings[berlin(2026, 9, 30, 23, 45)] = 400
 
     bill = bill_for(readings)
 
@@ -192,17 +192,34 @@ def test_gap_at_month_start_uses_the_reading_before_the_month():
     assert line(bill, "night").quantity == Decimal("1.100")
 
 
-def test_gap_at_month_end_without_a_later_reading_copies_the_nearest():
+def test_gap_at_month_end_without_a_later_reading_is_not_billed():
     readings = month_readings(2026, 10)
     readings[berlin(2026, 10, 31, 23, 30)] = 700
     del readings[berlin(2026, 10, 31, 23, 45)]
 
-    assert estimates(bill_for(readings)) == [(berlin(2026, 10, 31, 23, 45), 700)]
+    bill = bill_for(readings)
+
+    assert estimates(bill) == []
+    assert line(bill, "night").quantity == Decimal("0.700")
 
 
-def test_month_without_readings_cannot_be_billed():
-    with pytest.raises(NoReadingsError):
-        bill_for({berlin(2026, 9, 30, 23, 45): 400})
+def test_intervals_after_the_last_reading_are_not_billed():
+    bill = bill_for({berlin(2026, 11, 2, 10, 0): 1000}, month=11)
+
+    assert estimates(bill) == []
+    assert [(item.kind, item.quantity) for item in bill.lines] == [
+        ("day", Decimal("1.000")),
+        ("night", Decimal("0.000")),
+        ("fee", Decimal("1")),
+    ]
+    assert len(bill.daily) == 30
+
+
+def test_month_without_readings_bills_only_the_fee():
+    bill = bill_for({berlin(2026, 10, 31, 23, 45): 400}, month=11)
+
+    assert bill.total_eur == Decimal("12.90")
+    assert bill.notices == []
 
 
 def test_corrected_reading_is_billed_at_its_latest_value_with_a_notice():
