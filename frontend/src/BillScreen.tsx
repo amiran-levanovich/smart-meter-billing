@@ -1,3 +1,4 @@
+import DailyChart from './DailyChart'
 import {
   formatCtPerKwh,
   formatDate,
@@ -98,6 +99,9 @@ export default function BillScreen({ bill }: { bill: Bill }) {
                     <span className={`dot dot-${line.kind}`} aria-hidden="true" />
                     {POSITIONS[line.kind].name}
                     <span className="detail">{POSITIONS[line.kind].detail}</span>
+                    <span className="detail calculation">
+                      {quantity(line)} × {unitPrice(line)}
+                    </span>
                   </th>
                   <td>{quantity(line)}</td>
                   <td>{unitPrice(line)}</td>
@@ -107,9 +111,9 @@ export default function BillScreen({ bill }: { bill: Bill }) {
             </tbody>
             <tfoot>
               <tr>
-                <th scope="row" colSpan={3}>
-                  Gesamtbetrag
-                </th>
+                <td />
+                <td />
+                <th scope="row">Gesamtbetrag</th>
                 <td>{formatEur(bill.total_eur)}</td>
               </tr>
             </tfoot>
@@ -121,6 +125,8 @@ export default function BillScreen({ bill }: { bill: Bill }) {
           Das hat Sie gegenüber dem Tagpreis rund <strong>{formatWholeEur(bill.night_saving_eur)}</strong>{' '}
           weniger gekostet.
         </p>
+
+        <DailyChart daily={bill.daily} />
 
         {bill.notices.length > 0 && (
           <section className="notices" aria-labelledby="notices-heading">

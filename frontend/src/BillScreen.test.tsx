@@ -35,9 +35,9 @@ test('breaks the total into lines the customer can add up', () => {
   const rows = screen.getAllByRole('row').map(plainText)
   expect(rows).toEqual([
     'PositionMengePreisBetrag',
-    'Arbeitspreis Tag6–22 Uhr (HT)4.562,796 kWh31,847 ct/kWh1.453,11 €',
-    'Arbeitspreis Nacht22–6 Uhr (NT)4.279,988 kWh19,392 ct/kWh829,98 €',
-    'Grundpreisfester Monatspreis1 Monat12,90 €12,90 €',
+    'Arbeitspreis Tag6–22 Uhr (HT)4.562,796 kWh × 31,847 ct/kWh4.562,796 kWh31,847 ct/kWh1.453,11 €',
+    'Arbeitspreis Nacht22–6 Uhr (NT)4.279,988 kWh × 19,392 ct/kWh4.279,988 kWh19,392 ct/kWh829,98 €',
+    'Grundpreisfester Monatspreis1 Monat × 12,90 €1 Monat12,90 €12,90 €',
     'Gesamtbetrag2.295,99 €',
   ])
 })

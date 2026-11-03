@@ -187,3 +187,104 @@ tfoot th {
   font-size: 0.8125rem;
   color: var(--navy-muted);
 }
+
+.chart {
+  margin-bottom: 40px;
+}
+
+.chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-head h2 {
+  margin: 0;
+}
+
+.unit-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+}
+
+.unit-toggle button {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 48px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--navy-muted);
+  cursor: pointer;
+}
+
+.unit-toggle button[aria-pressed='true'] {
+  background: var(--navy);
+  color: var(--white);
+}
+
+.legend {
+  display: flex;
+  gap: 20px;
+  font-size: 0.875rem;
+  color: var(--navy-muted);
+  margin-bottom: 8px;
+}
+
+.axis-unit {
+  font-size: 0.75rem;
+  color: var(--navy-muted);
+}
+
+.chart .recharts-cartesian-axis-tick-value {
+  font-size: 0.75rem;
+  fill: var(--navy-muted);
+}
+
+.chart-tooltip {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  box-shadow: 0 1px 3px rgb(15 42 63 / 0.12);
+}
+
+.calculation {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .bill-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .customer {
+    text-align: left;
+  }
+
+  thead th:nth-child(2),
+  thead th:nth-child(3),
+  tbody td:nth-child(2),
+  tbody td:nth-child(3),
+  tfoot td:nth-child(1),
+  tfoot td:nth-child(2) {
+    display: none;
+  }
+
+  .calculation {
+    display: block;
+  }
+
+  .chart-tooltip {
+    max-width: 220px;
+  }
+}

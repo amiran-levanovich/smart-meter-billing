@@ -8,6 +8,10 @@ const wholeEuro = new Intl.NumberFormat('de-DE', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 })
+const oneDecimal = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
 const percent = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 })
 const calendarDate = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
@@ -35,6 +39,7 @@ const monthAndYear = new Intl.DateTimeFormat('de-DE', {
 export const formatEur = (amount: string) => euro.format(Number(amount))
 export const formatWholeEur = (amount: string) => wholeEuro.format(Number(amount))
 export const formatKwh = (kwh: string) => `${threeDecimals.format(Number(kwh))} kWh`
+export const formatKwhShort = (kwh: string) => `${oneDecimal.format(Number(kwh))} kWh`
 export const formatWhAsKwh = (wh: number) => threeDecimals.format(wh / 1000)
 export const formatCtPerKwh = (ct: string) => `${threeDecimals.format(Number(ct))} ct/kWh`
 export const formatRate = (value: string) => `${percent.format(Number(value) * 100)} %`
