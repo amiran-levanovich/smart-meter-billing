@@ -349,3 +349,19 @@ def test_correction_outside_the_month_is_not_a_notice():
 def test_day_window_off_the_15_minute_grid_is_rejected():
     with pytest.raises(InvalidTariffError):
         compute_bill([], replace(TARIFF, day_start=time(6, 10)), 2026, 10)
+
+
+def test_running_month_is_billed_only_up_to_now():
+    now = berlin(2026, 11, 3, 10, 0)
+    readings = {t: 100 for t in month_readings(2026, 11) if t < now}
+
+    bill = bill_for(readings, month=11, now=now)
+
+    assert (bill.measured_intervals, bill.unbilled_intervals) == (len(readings), 0)
+    assert bill.period_end == now
+    assert bill.in_progress
+    assert [d.date for d in bill.daily] == [date(2026, 11, 1), date(2026, 11, 2), date(2026, 11, 3)]
+
+
+def test_finished_month_is_not_in_progress():
+    assert not bill_for(month_readings(2026, 10), now=berlin(2026, 11, 3, 10, 0)).in_progress

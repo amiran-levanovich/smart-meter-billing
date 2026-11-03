@@ -140,3 +140,21 @@ test('takes the day window from the tariff', () => {
   expect(screen.getByText('21:30–7 Uhr (NT)')).toBeInTheDocument()
   expect(screen.getByText('Tag (7–21:30 Uhr)')).toBeInTheDocument()
 })
+
+test('marks a running month and shows the period up to today', () => {
+  const november = {
+    ...october,
+    in_progress: true,
+    period: {
+      month: '2026-11',
+      start: '2026-11-01T00:00:00+01:00',
+      end: '2026-11-03T10:00:00+01:00',
+    },
+  }
+  render(<BillScreen bill={november} />)
+
+  expect(
+    screen.getByText(/Abrechnungszeitraum 01\.11\.2026 – 03\.11\.2026 · laufender Monat/),
+  ).toBeInTheDocument()
+  expect(screen.getByText('Bisher im November')).toBeInTheDocument()
+})
